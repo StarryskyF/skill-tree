@@ -110,6 +110,7 @@ function logout() {
         <div
           class="rounded-xl p-6 cursor-pointer transition-all duration-200 hover:scale-[1.02] group"
           style="background-color: var(--bg-card); border: 1px solid var(--border-color); box-shadow: var(--shadow-card);"
+          @click="router.push('/skill-trees')"
         >
           <div class="flex items-center gap-3 mb-3">
             <div
@@ -130,6 +131,7 @@ function logout() {
         <div
           class="rounded-xl p-6 cursor-pointer transition-all duration-200 hover:scale-[1.02] group"
           style="background-color: var(--bg-card); border: 1px solid var(--border-color); box-shadow: var(--shadow-card);"
+          @click="router.push('/skill-trees')"
         >
           <div class="flex items-center gap-3 mb-3">
             <div

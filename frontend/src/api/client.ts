@@ -8,7 +8,7 @@ export interface ApiResponse<T> {
 }
 
 const apiClient = axios.create({
-  baseURL: 'http://localhost:3000',
+  baseURL: 'http://localhost:3000/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -49,6 +49,14 @@ export async function postForm<T>(url: string, formData: FormData): Promise<ApiR
   return response.data
 }
 
+/**
+ * 发起 DELETE 请求，返回统一格式的 ApiResponse
+ */
+export async function del<T>(url: string): Promise<ApiResponse<T>> {
+  const response = await apiClient.delete<ApiResponse<T>>(url)
+  return response.data
+}
+
 // Request interceptor: attach JWT token
 apiClient.interceptors.request.use((config) => {
   const raw = localStorage.getItem('auth')
@@ -77,5 +85,5 @@ apiClient.interceptors.response.use(
   },
 )
 
-const client = { get, post, put, postForm }
+const client = { get, post, put, postForm, del }
 export default client

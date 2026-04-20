@@ -30,12 +30,14 @@ export class UsersService {
   async updateProfile(id: string, dto: UpdateProfileDto) {
     this.logger.log(`Updating profile for user: ${id}`);
     const user = await this.userModel.findByIdAndUpdate(id, { name: dto.name }, { new: true }).exec();
+    if (!user) throw new BadRequestException('用户不存在');
     return { id: user._id, username: user.username, name: user.name, avatar: user.avatar };
   }
 
   async updatePassword(id: string, oldPassword: string, newPassword: string): Promise<void> {
     this.logger.log(`Updating password for user: ${id}`);
     const user = await this.userModel.findById(id).exec();
+    if (!user) throw new BadRequestException('用户不存在');
     const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch) {
       throw new BadRequestException('旧密码不正确');
@@ -47,6 +49,7 @@ export class UsersService {
   async updateAvatar(id: string, avatarUrl: string) {
     this.logger.log(`Updating avatar for user: ${id}`);
     const user = await this.userModel.findByIdAndUpdate(id, { avatar: avatarUrl }, { new: true }).exec();
+    if (!user) throw new BadRequestException('用户不存在');
     return { id: user._id, username: user.username, name: user.name, avatar: user.avatar };
   }
 }

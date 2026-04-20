@@ -18,6 +18,14 @@ const router = createRouter({
       path: '/',
       component: () => import('../pages/home/home.vue'),
     },
+    {
+      path: '/skill-trees',
+      component: () => import('../pages/skill-trees/skill-trees.vue'),
+    },
+    {
+      path: '/skill-trees/:id',
+      component: () => import('../pages/skill-trees/skill-tree-detail/skill-tree-detail.vue'),
+    },
   ],
 })
 
