@@ -6,12 +6,13 @@ import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/controls/dist/style.css'
-import { getSkillTree, getNodeStatuses } from '../../../api/skill-trees'
-import type { SkillTree, SkillNode, NodeStatus, QuizQuestion, CompleteNodeResult } from '../../../api/skill-trees'
+import { getSkillTree, getNodeStatuses, getPathAnalysis } from '../../../api/skill-trees'
+import type { SkillTree, SkillNode, NodeStatus, QuizQuestion, CompleteNodeResult, PathAnalysisResult } from '../../../api/skill-trees'
 import ThemeToggle from '../../../components/ThemeToggle.vue'
 import SkillTreeNode from './components/SkillTreeNode.vue'
 import QuizModal from './components/QuizModal.vue'
 import ChatPanel from './components/ChatPanel.vue'
+import PathAnalysisCard from './components/PathAnalysisCard.vue'
 import LevelUpOverlay from '../../../components/LevelUpOverlay.vue'
 import BadgeUnlockToast from '../../../components/BadgeUnlockToast.vue'
 
@@ -29,6 +30,8 @@ const justCompletedNodeId = ref<string | null>(null)
 const justUnlockedNodeIds = ref<Set<string>>(new Set())
 const levelUpData = ref<{ oldLevel: number; newLevel: number; levelName: string } | null>(null)
 const pendingBadges = ref<Array<{ id: string; name: string }>>([])
+const pathAnalysis = ref<PathAnalysisResult | null>(null)
+const chatPendingMessage = ref<string | undefined>(undefined)
 
 const LEVEL_NAMES = ['', '入门者', '学习者', '进阶者', '熟练者', '专家']
 
@@ -88,13 +91,15 @@ const flowEdges = computed(() =>
 onMounted(async () => {
   try {
     const treeId = route.params.id as string
-    const [treeRes, statusRes] = await Promise.all([
+    const [treeRes, statusRes, analysisRes] = await Promise.all([
       getSkillTree(treeId),
       getNodeStatuses(treeId),
+      getPathAnalysis(treeId),
     ])
     if (!treeRes.data) throw new Error('数据为空')
     skillTree.value = treeRes.data
     if (statusRes.data) nodeStatuses.value = statusRes.data
+    if (analysisRes.data) pathAnalysis.value = analysisRes.data
   } catch {
     error.value = '技能树加载失败'
   } finally {
@@ -129,6 +134,9 @@ function onQuizComplete(result: CompleteNodeResult) {
   setTimeout(() => { justCompletedNodeId.value = null }, 1000)
   setTimeout(() => { justUnlockedNodeIds.value = new Set() }, 2000)
 
+  // 刷新路径分析
+  refreshPathAnalysis()
+
   // 升级和徽章通知
   if (result.leveledUp && result.newLevel) {
     levelUpData.value = {
@@ -149,6 +157,23 @@ function onQuizClose() {
 function onQuestionsGenerated(qs: QuizQuestion[]) {
   if (quizModalNodeId.value) nodeQuizCache.value[quizModalNodeId.value] = qs
 }
+
+async function refreshPathAnalysis() {
+  const treeId = route.params.id as string
+  const res = await getPathAnalysis(treeId)
+  if (res.data) pathAnalysis.value = res.data
+}
+
+function onAskAi(message: string) {
+  chatOpen.value = true
+  chatPendingMessage.value = message
+}
+
+const nodeIdToTitle = computed(() => {
+  const map: Record<string, string> = {}
+  for (const n of skillTree.value?.nodes ?? []) map[n.id] = n.title
+  return map
+})
 </script>
 
 <template>
@@ -215,11 +240,21 @@ function onQuestionsGenerated(qs: QuizQuestion[]) {
         <Background pattern-color="var(--border-color)" :gap="20" />
         <Controls />
       </VueFlow>
-      <ChatPanel
-        v-if="chatOpen && skillTree"
-        :skill-tree-id="skillTree._id"
-        :focused-node-id="focusedNodeId"
-      />
+      <div v-if="chatOpen && skillTree" class="detail-side">
+        <PathAnalysisCard
+          v-if="pathAnalysis"
+          :analysis="pathAnalysis"
+          :node-id-to-title="nodeIdToTitle"
+          @ask-ai="onAskAi"
+          @highlight-nodes="(ids) => { ids.forEach(id => justUnlockedNodeIds.value.add(id)); setTimeout(() => justUnlockedNodeIds.value = new Set(), 2000) }"
+        />
+        <ChatPanel
+          :skill-tree-id="skillTree._id"
+          :focused-node-id="focusedNodeId"
+          :pending-message="chatPendingMessage"
+          @message-consumed="chatPendingMessage = undefined"
+        />
+      </div>
     </div>
 
     <QuizModal
@@ -382,6 +417,21 @@ function onQuestionsGenerated(qs: QuizQuestion[]) {
   flex: 1;
   height: 100%;
   background-color: var(--bg-page);
+}
+
+.detail-side {
+  width: 360px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.detail-side :deep(.chat-panel) {
+  border-left: none;
+  flex: 1;
+  min-height: 0;
 }
 
 .detail-state {

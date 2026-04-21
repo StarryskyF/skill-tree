@@ -1,6 +1,7 @@
-export function buildQuizPrompt(title: string, description: string): string {
+export function buildQuizPrompt(title: string, description: string, treeGoal: string): string {
   return `你是一个专业的学习评估专家。请为以下技能节点生成3道单选测试题，用于检验学习者是否掌握了该知识点。
 
+学习目标（技能树主题）：${treeGoal}
 技能节点名称：${title}
 技能节点描述：${description}
 

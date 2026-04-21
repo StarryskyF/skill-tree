@@ -64,6 +64,11 @@ export class SkillTreesController {
     return this.skillTreesService.completeNode(req.user.id, id, nodeId, dto);
   }
 
+  @Get(':id/path-analysis')
+  getPathAnalysis(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.skillTreesService.getPathAnalysis(req.user.id, id);
+  }
+
   @Get(':id')
   findOne(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.skillTreesService.findOne(req.user.id, id);

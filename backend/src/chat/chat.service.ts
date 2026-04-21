@@ -9,6 +9,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { AiService } from '../ai/ai.service';
 import { SkillTree, SkillTreeDocument } from '../skill-trees/schemas/skill-tree.schema';
 import { RagService } from '../rag/rag.service';
+import { analyzePathSimilarity } from '../skill-trees/path-analysis.util';
 
 @Injectable()
 export class ChatService {
@@ -80,6 +81,14 @@ export class ChatService {
       ? `\n用户历史错题（请结合这些薄弱点回答）：\n${pastMistakes.map((m, i) => `${i + 1}. ${m}`).join('\n')}`
       : '';
 
+    // 路径相似度分析
+    const pathAnalysis = analyzePathSimilarity(skillTree.nodes, skillTree.completedNodes ?? []);
+    const completedCount = pathAnalysis.userPath.length;
+    const totalCount = pathAnalysis.expertPath.length;
+    const pathAnalysisText = totalCount > 0
+      ? `\n学习路径分析：已完成 ${completedCount}/${totalCount} 个节点，路径相似度评分 ${pathAnalysis.similarityScore}/100。${pathAnalysis.nextRecommended.length > 0 ? `建议接下来学习：${pathAnalysis.nextRecommended.slice(0, 3).map((id) => skillTree.nodes.find((n) => n.id === id)?.title ?? id).join('、')}。` : '所有节点已完成！'}`
+      : '';
+
     const systemPrompt = `你是一个专业的学习助手，帮助用户学习「${skillTree.title}」。
 
 用户学习目标：${skillTree.goal}
@@ -88,8 +97,9 @@ export class ChatService {
 技能树节点（格式：节点标题 [状态]）：
 ${nodeListText}
 ${focusedNodeText}
+${pathAnalysisText}
 ${mistakesText}
-请用中文回答，回答要简洁、专业、有针对性。如果用户有历史错题，请在回答时有针对性地帮助他纠正误区。如果用户的问题与当前学习内容无关，请温和地引导回学习主题。`;
+请用中文回答，回答要简洁、专业、有针对性。如果用户有历史错题，请在回答时有针对性地帮助他纠正误区。根据路径分析，在合适的时候引导用户按推荐顺序学习下一个节点。如果用户的问题与当前学习内容无关，请温和地引导回学习主题。`;
 
     const historyMessages = chat.messages.slice(-20).map((m) =>
       m.role === 'user' ? new HumanMessage(m.content) : new AIMessage(m.content),

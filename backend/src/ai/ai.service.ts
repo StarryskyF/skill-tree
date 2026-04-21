@@ -89,8 +89,8 @@ export class AiService {
     return this.model.stream(messages);
   }
 
-  async generateQuiz(title: string, description: string): Promise<QuizQuestion[]> {
-    const prompt = buildQuizPrompt(title, description);
+  async generateQuiz(title: string, description: string, treeGoal: string): Promise<QuizQuestion[]> {
+    const prompt = buildQuizPrompt(title, description, treeGoal);
     const maxRetries = 3;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {

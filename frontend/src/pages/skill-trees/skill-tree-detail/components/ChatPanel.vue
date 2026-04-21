@@ -6,9 +6,11 @@ import type { Chat, ChatListItem, ChatMessage } from '../../../../api/chat'
 interface ChatPanelProps {
   skillTreeId: string
   focusedNodeId: string | null
+  pendingMessage?: string
 }
 
 const props = defineProps<ChatPanelProps>()
+const emit = defineEmits<{ messageConsumed: [] }>()
 
 const conversations = ref<ChatListItem[]>([])
 const currentChat = ref<Chat | null>(null)
@@ -113,6 +115,14 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 watch(() => props.skillTreeId, loadOrCreateChat, { immediate: false })
+
+watch(() => props.pendingMessage, async (msg) => {
+  if (!msg) return
+  emit('messageConsumed')
+  await nextTick()
+  inputText.value = msg
+  await sendMessage()
+})
 
 onMounted(loadOrCreateChat)
 </script>

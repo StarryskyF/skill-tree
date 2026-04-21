@@ -48,6 +48,22 @@ export interface CompleteNodeResult {
   newBadges?: Array<{ id: string; name: string }>
 }
 
+export interface PathDeviation {
+  nodeId: string
+  nodeTitle: string
+  shouldBeAfterTitles: string[]
+}
+
+export interface PathAnalysisResult {
+  similarityScore: number
+  completedCount: number
+  totalCount: number
+  deviations: PathDeviation[]
+  nextRecommended: string[]
+  expertPath: string[]
+  userPath: string[]
+}
+
 export interface CreateSkillTreeDto {
   goal: string
   currentLevel: string
@@ -83,4 +99,8 @@ export function completeNode(
   dto: { quizAnswers: number[]; questions: QuizQuestion[] },
 ) {
   return client.post<CompleteNodeResult>(`/skill-trees/${treeId}/nodes/${nodeId}/complete`, dto)
+}
+
+export function getPathAnalysis(treeId: string) {
+  return client.get<PathAnalysisResult>(`/skill-trees/${treeId}/path-analysis`)
 }

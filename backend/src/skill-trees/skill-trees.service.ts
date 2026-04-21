@@ -7,6 +7,7 @@ import { AiService, QuizQuestion } from '../ai/ai.service';
 import { CompleteNodeDto } from './dto/complete-node.dto';
 import { RagService } from '../rag/rag.service';
 import { UsersService } from '../users/users.service';
+import { analyzePathSimilarity, PathAnalysisResult } from './path-analysis.util';
 
 @Injectable()
 export class SkillTreesService {
@@ -109,7 +110,7 @@ export class SkillTreesService {
     if (statuses[nodeId] === 'locked') throw new ForbiddenException('该节点尚未解锁');
     if (statuses[nodeId] === 'completed') throw new BadRequestException('该节点已完成');
 
-    return this.aiService.generateQuiz(node.title, node.description);
+    return this.aiService.generateQuiz(node.title, node.description, tree.goal);
   }
 
   async completeNode(
@@ -180,5 +181,10 @@ export class SkillTreesService {
     const { newExp, newLevel, leveledUp, newBadges } = await this.usersService.addExp(userId, expGained, treeBadges);
 
     return { passed: true, score, newStatuses, expGained, newExp, newLevel, leveledUp, newBadges };
+  }
+
+  async getPathAnalysis(userId: string, treeId: string): Promise<PathAnalysisResult> {
+    const tree = await this.findOne(userId, treeId);
+    return analyzePathSimilarity(tree.nodes, tree.completedNodes ?? []);
   }
 }
