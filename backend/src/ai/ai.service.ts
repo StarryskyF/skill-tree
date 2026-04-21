@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ChatOpenAI } from '@langchain/openai';
-import { HumanMessage } from '@langchain/core/messages';
+import { HumanMessage, BaseMessage } from '@langchain/core/messages';
+import type { AIMessageChunk } from '@langchain/core/messages';
 import { z } from 'zod';
 import { buildSkillTreePrompt } from './prompts/skill-tree.prompt';
 import { buildQuizPrompt } from './prompts/quiz.prompt';
@@ -81,6 +82,10 @@ export class AiService {
     }
 
     throw new Error('unreachable');
+  }
+
+  async streamChat(messages: BaseMessage[]): Promise<AsyncIterable<AIMessageChunk>> {
+    return this.model.stream(messages);
   }
 
   async generateQuiz(title: string, description: string): Promise<QuizQuestion[]> {

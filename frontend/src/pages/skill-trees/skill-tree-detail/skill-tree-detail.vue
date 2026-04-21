@@ -11,6 +11,7 @@ import type { SkillTree, SkillNode, NodeStatus, QuizQuestion } from '../../../ap
 import ThemeToggle from '../../../components/ThemeToggle.vue'
 import SkillTreeNode from './components/SkillTreeNode.vue'
 import QuizModal from './components/QuizModal.vue'
+import ChatPanel from './components/ChatPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,6 +21,8 @@ const error = ref('')
 const nodeStatuses = ref<Record<string, NodeStatus>>({})
 const quizModalNodeId = ref<string | null>(null)
 const nodeQuizCache = ref<Record<string, QuizQuestion[]>>({})
+const chatOpen = ref(false)
+const focusedNodeId = ref<string | null>(null)
 
 const quizModalNode = computed(() =>
   quizModalNodeId.value
@@ -91,6 +94,9 @@ onMounted(async () => {
 function onNodeClick({ node }: { node: { id: string; data: { status: NodeStatus } } }) {
   if (node.data.status === 'available') {
     quizModalNodeId.value = node.id
+  } else {
+    focusedNodeId.value = node.id
+    chatOpen.value = true
   }
 }
 
@@ -119,6 +125,9 @@ function onQuestionsGenerated(qs: QuizQuestion[]) {
       </div>
       <div class="detail-nav__right">
         <ThemeToggle />
+        <button class="detail-nav__chat" :class="{ active: chatOpen }" @click="chatOpen = !chatOpen">
+          AI 助手
+        </button>
         <button class="detail-nav__back" @click="router.push('/skill-trees')">← 返回列表</button>
       </div>
     </nav>
@@ -164,6 +173,11 @@ function onQuestionsGenerated(qs: QuizQuestion[]) {
         <Background pattern-color="var(--border-color)" :gap="20" />
         <Controls />
       </VueFlow>
+      <ChatPanel
+        v-if="chatOpen && skillTree"
+        :skill-tree-id="skillTree._id"
+        :focused-node-id="focusedNodeId"
+      />
     </div>
 
     <QuizModal
@@ -282,13 +296,34 @@ function onQuestionsGenerated(qs: QuizQuestion[]) {
   opacity: 0.4;
 }
 
+.detail-nav__chat {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  background-color: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.detail-nav__chat:hover { opacity: 0.75; }
+
+.detail-nav__chat.active {
+  background-color: #7c3aed;
+  color: #fff;
+  border-color: #7c3aed;
+}
+
 .detail-canvas {
   flex: 1;
   overflow: hidden;
+  display: flex;
 }
 
 .detail-flow {
-  width: 100%;
+  flex: 1;
   height: 100%;
   background-color: var(--bg-page);
 }

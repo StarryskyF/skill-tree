@@ -5,6 +5,7 @@ import { SkillNode, SkillTree, SkillTreeDocument } from './schemas/skill-tree.sc
 import { CreateSkillTreeDto } from './dto/create-skill-tree.dto';
 import { AiService, QuizQuestion } from '../ai/ai.service';
 import { CompleteNodeDto } from './dto/complete-node.dto';
+import { RagService } from '../rag/rag.service';
 
 @Injectable()
 export class SkillTreesService {
@@ -13,6 +14,7 @@ export class SkillTreesService {
   constructor(
     @InjectModel(SkillTree.name) private skillTreeModel: Model<SkillTreeDocument>,
     private aiService: AiService,
+    private ragService: RagService,
   ) {}
 
   async create(userId: string, dto: CreateSkillTreeDto): Promise<SkillTreeDocument> {
@@ -123,11 +125,29 @@ export class SkillTreesService {
     if (statuses[nodeId] === 'completed') throw new BadRequestException('该节点已完成');
 
     let correct = 0;
+    const mistakes: { question: string; userAnswer: string; correctAnswer: string }[] = [];
     for (let i = 0; i < dto.questions.length; i++) {
-      if (dto.quizAnswers[i] === dto.questions[i].correctIndex) correct++;
+      if (dto.quizAnswers[i] === dto.questions[i].correctIndex) {
+        correct++;
+      } else {
+        mistakes.push({
+          question: dto.questions[i].question,
+          userAnswer: dto.questions[i].options[dto.quizAnswers[i]] ?? '未作答',
+          correctAnswer: dto.questions[i].options[dto.questions[i].correctIndex],
+        });
+      }
     }
     const score = correct;
     const passed = score >= 2;
+
+    // 无论通过与否，都存储本次错题
+    if (mistakes.length > 0) {
+      setImmediate(() =>
+        this.ragService
+          .storeQuizMistakes(userId, treeId, nodeId, node.title, mistakes)
+          .catch((err) => this.logger.error(`RAG store failed: ${(err as Error).message}`)),
+      );
+    }
 
     if (!passed) {
       return { passed: false, score, newStatuses: statuses };

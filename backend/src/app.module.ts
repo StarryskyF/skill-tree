@@ -6,6 +6,8 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { AiModule } from './ai/ai.module';
 import { SkillTreesModule } from './skill-trees/skill-trees.module';
+import { ChatModule } from './chat/chat.module';
+import { RagModule } from './rag/rag.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { SkillTreesModule } from './skill-trees/skill-trees.module';
     AuthModule,
     AiModule,
     SkillTreesModule,
+    ChatModule,
+    RagModule,
   ],
 })
 export class AppModule {}
