@@ -16,10 +16,13 @@ import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { Request } from 'express';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
+import { SkillTree, SkillTreeDocument } from '../skill-trees/schemas/skill-tree.schema';
 
 const uploadDir = join(process.cwd(), 'uploads', 'avatars');
 if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
@@ -29,7 +32,17 @@ if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
 export class UsersController {
   private readonly logger = new Logger(UsersController.name);
 
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    @InjectModel(SkillTree.name) private skillTreeModel: Model<SkillTreeDocument>,
+  ) {}
+
+  @Get('me/stats')
+  async getStats(@Req() req: Request) {
+    const userId = (req.user as any).id;
+    const treeCount = await this.skillTreeModel.countDocuments({ userId }).exec();
+    return this.usersService.getUserStats(userId, treeCount);
+  }
 
   @Get('me')
   async getProfile(@Req() req: Request) {

@@ -6,6 +6,7 @@ export interface SkillNode {
   description: string
   level: number
   prerequisites: string[]
+  exp: number
 }
 
 export interface SkillEdge {
@@ -40,6 +41,11 @@ export interface CompleteNodeResult {
   passed: boolean
   score: number
   newStatuses: Record<string, NodeStatus>
+  expGained?: number
+  newExp?: number
+  newLevel?: number
+  leveledUp?: boolean
+  newBadges?: Array<{ id: string; name: string }>
 }
 
 export interface CreateSkillTreeDto {

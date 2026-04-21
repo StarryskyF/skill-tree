@@ -8,18 +8,25 @@ interface SkillTreeNodeProps {
     description: string
     level: number
     status?: 'locked' | 'available' | 'completed'
+    exp?: number
+    justCompleted?: boolean
+    justUnlocked?: boolean
   }
 }
 
 const props = defineProps<SkillTreeNodeProps>()
-
 const status = props.data.status ?? 'available'
 </script>
 
 <template>
   <div
     class="skill-node"
-    :class="[`skill-node--${status}`, { 'skill-node--clickable': status === 'available' }]"
+    :class="[
+      `skill-node--${status}`,
+      { 'skill-node--clickable': status === 'available' || status === 'locked' || status === 'completed' },
+      { 'skill-node--just-completed': data.justCompleted },
+      { 'skill-node--just-unlocked': data.justUnlocked },
+    ]"
   >
     <Handle type="target" :position="Position.Left" />
 
@@ -32,6 +39,9 @@ const status = props.data.status ?? 'available'
     <div class="skill-node__body">
       <p class="skill-node__title">{{ props.data.title }}</p>
       <p class="skill-node__desc">{{ props.data.description }}</p>
+      <div v-if="status !== 'locked' && props.data.exp" class="skill-node__exp">
+        +{{ props.data.exp }} EXP
+      </div>
     </div>
 
     <Handle type="source" :position="Position.Right" />
@@ -77,8 +87,30 @@ const status = props.data.status ?? 'available'
   cursor: pointer;
 }
 
-.skill-node--clickable:hover {
+.skill-node--available.skill-node--clickable:hover {
   box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
+}
+
+/* 节点完成动画 */
+.skill-node--just-completed {
+  animation: node-complete-pulse 0.8s ease;
+}
+
+@keyframes node-complete-pulse {
+  0%   { box-shadow: 0 0 12px rgba(16, 185, 129, 0.2); }
+  30%  { box-shadow: 0 0 40px rgba(16, 185, 129, 0.8), 0 0 80px rgba(16, 185, 129, 0.4); transform: scale(1.08); }
+  100% { box-shadow: 0 0 12px rgba(16, 185, 129, 0.2); transform: scale(1); }
+}
+
+/* 新解锁动画 */
+.skill-node--just-unlocked {
+  animation: node-unlock-shimmer 1s ease;
+}
+
+@keyframes node-unlock-shimmer {
+  0%   { opacity: 0.3; transform: scale(0.9); box-shadow: none; }
+  50%  { opacity: 1;   transform: scale(1.05); box-shadow: 0 0 30px rgba(124, 58, 237, 0.6); }
+  100% { opacity: 1;   transform: scale(1);   box-shadow: 0 0 12px rgba(124, 58, 237, 0.2); }
 }
 
 .skill-node__icon {
@@ -103,11 +135,18 @@ const status = props.data.status ?? 'available'
 .skill-node__desc {
   font-size: 11px;
   color: var(--text-muted);
-  margin: 0;
+  margin: 0 0 4px;
   line-height: 1.4;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+.skill-node__exp {
+  font-size: 10px;
+  font-weight: 700;
+  color: #fbbf24;
+  letter-spacing: 0.05em;
 }
 </style>

@@ -7,11 +7,13 @@ import { Controls } from '@vue-flow/controls'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/controls/dist/style.css'
 import { getSkillTree, getNodeStatuses } from '../../../api/skill-trees'
-import type { SkillTree, SkillNode, NodeStatus, QuizQuestion } from '../../../api/skill-trees'
+import type { SkillTree, SkillNode, NodeStatus, QuizQuestion, CompleteNodeResult } from '../../../api/skill-trees'
 import ThemeToggle from '../../../components/ThemeToggle.vue'
 import SkillTreeNode from './components/SkillTreeNode.vue'
 import QuizModal from './components/QuizModal.vue'
 import ChatPanel from './components/ChatPanel.vue'
+import LevelUpOverlay from '../../../components/LevelUpOverlay.vue'
+import BadgeUnlockToast from '../../../components/BadgeUnlockToast.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,6 +25,12 @@ const quizModalNodeId = ref<string | null>(null)
 const nodeQuizCache = ref<Record<string, QuizQuestion[]>>({})
 const chatOpen = ref(false)
 const focusedNodeId = ref<string | null>(null)
+const justCompletedNodeId = ref<string | null>(null)
+const justUnlockedNodeIds = ref<Set<string>>(new Set())
+const levelUpData = ref<{ oldLevel: number; newLevel: number; levelName: string } | null>(null)
+const pendingBadges = ref<Array<{ id: string; name: string }>>([])
+
+const LEVEL_NAMES = ['', '入门者', '学习者', '进阶者', '熟练者', '专家']
 
 const quizModalNode = computed(() =>
   quizModalNodeId.value
@@ -54,7 +62,10 @@ function layoutNodes(nodes: SkillNode[]) {
           title: n.title,
           description: n.description,
           level: n.level,
+          exp: n.exp,
           status: (nodeStatuses.value[n.id] ?? 'available') as NodeStatus,
+          justCompleted: justCompletedNodeId.value === n.id,
+          justUnlocked: justUnlockedNodeIds.value.has(n.id),
         },
       })
     })
@@ -100,8 +111,35 @@ function onNodeClick({ node }: { node: { id: string; data: { status: NodeStatus 
   }
 }
 
-function onQuizComplete(newStatuses: Record<string, NodeStatus>) {
-  nodeStatuses.value = newStatuses
+function onQuizComplete(result: CompleteNodeResult) {
+  const prevStatuses = { ...nodeStatuses.value }
+  nodeStatuses.value = result.newStatuses
+
+  // 找到新解锁的节点
+  const newlyUnlocked = new Set<string>()
+  for (const [id, status] of Object.entries(result.newStatuses)) {
+    if (status === 'available' && prevStatuses[id] === 'locked') {
+      newlyUnlocked.add(id)
+    }
+  }
+  justUnlockedNodeIds.value = newlyUnlocked
+
+  // 触发完成节点动画
+  justCompletedNodeId.value = quizModalNodeId.value
+  setTimeout(() => { justCompletedNodeId.value = null }, 1000)
+  setTimeout(() => { justUnlockedNodeIds.value = new Set() }, 2000)
+
+  // 升级和徽章通知
+  if (result.leveledUp && result.newLevel) {
+    levelUpData.value = {
+      oldLevel: result.newLevel - 1,
+      newLevel: result.newLevel,
+      levelName: LEVEL_NAMES[result.newLevel] ?? '专家',
+    }
+  }
+  if (result.newBadges?.length) {
+    pendingBadges.value = result.newBadges
+  }
 }
 
 function onQuizClose() {
@@ -140,9 +178,13 @@ function onQuestionsGenerated(qs: QuizQuestion[]) {
         <span class="detail-info__level">水平：{{ skillTree.currentLevel }}</span>
       </div>
       <div class="detail-info__stats">
-        <span>{{ skillTree.nodes.length }} 个节点</span>
+        <span>{{ skillTree.completedNodes.length }}/{{ skillTree.nodes.length }} 节点</span>
         <span class="detail-info__dot">·</span>
-        <span>{{ skillTree.edges.length }} 条依赖</span>
+        <span>
+          {{ skillTree.nodes.filter(n => skillTree.completedNodes.includes(n.id)).reduce((s, n) => s + (n.exp ?? 10), 0) }}
+          /
+          {{ skillTree.nodes.reduce((s, n) => s + (n.exp ?? 10), 0) }} EXP
+        </span>
       </div>
     </div>
 
@@ -189,6 +231,20 @@ function onQuestionsGenerated(qs: QuizQuestion[]) {
       @complete="onQuizComplete"
       @close="onQuizClose"
       @questions-generated="onQuestionsGenerated"
+    />
+
+    <LevelUpOverlay
+      v-if="levelUpData"
+      :old-level="levelUpData.oldLevel"
+      :new-level="levelUpData.newLevel"
+      :level-name="levelUpData.levelName"
+      @close="levelUpData = null"
+    />
+
+    <BadgeUnlockToast
+      v-if="pendingBadges.length"
+      :badges="pendingBadges"
+      @close="pendingBadges = []"
     />
   </div>
 </template>

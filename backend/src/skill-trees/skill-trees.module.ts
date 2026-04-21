@@ -5,12 +5,14 @@ import { SkillTreesService } from './skill-trees.service';
 import { SkillTree, SkillTreeSchema } from './schemas/skill-tree.schema';
 import { AiModule } from '../ai/ai.module';
 import { RagModule } from '../rag/rag.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: SkillTree.name, schema: SkillTreeSchema }]),
     AiModule,
     RagModule,
+    UsersModule,
   ],
   controllers: [SkillTreesController],
   providers: [SkillTreesService],

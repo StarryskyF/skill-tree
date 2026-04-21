@@ -13,6 +13,7 @@ const SkillNodeSchema = z.object({
   description: z.string(),
   level: z.number().int().min(0),
   prerequisites: z.array(z.string()),
+  exp: z.number().int().min(5).max(50),
 });
 
 const SkillEdgeSchema = z.object({

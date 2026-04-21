@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { generateQuiz, completeNode } from '../../../../api/skill-trees'
-import type { QuizQuestion, NodeStatus } from '../../../../api/skill-trees'
+import type { QuizQuestion, NodeStatus, CompleteNodeResult } from '../../../../api/skill-trees'
 
 const props = defineProps<{
   treeId: string
@@ -11,7 +11,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  complete: [newStatuses: Record<string, NodeStatus>]
+  complete: [result: CompleteNodeResult]
   close: []
   questionsGenerated: [questions: QuizQuestion[]]
 }>()
@@ -24,6 +24,7 @@ const selectedAnswers = ref<number[]>([-1, -1, -1])
 const passed = ref(false)
 const score = ref(0)
 const submitting = ref(false)
+const completeResult = ref<CompleteNodeResult | null>(null)
 
 const allAnswered = computed(() => selectedAnswers.value.every((a) => a !== -1))
 
@@ -56,8 +57,9 @@ async function submitAnswers() {
     if (!res.data) throw new Error(res.message || '提交失败')
     passed.value = res.data.passed
     score.value = res.data.score
+    completeResult.value = res.data
     if (res.data.passed) {
-      emit('complete', res.data.newStatuses)
+      emit('complete', res.data)
     }
     phase.value = 'result'
   } catch (err) {
@@ -147,6 +149,34 @@ function retry() {
           <div class="quiz-result-icon quiz-result-icon--pass">✅</div>
           <p class="quiz-result-title">恭喜通过！</p>
           <p class="quiz-result-sub">得分：{{ score }}/3 — 后续节点已解锁</p>
+
+          <!-- EXP gain -->
+          <div v-if="completeResult?.expGained" class="quiz-exp-gain">
+            <span class="quiz-exp-float">+{{ completeResult.expGained }} EXP</span>
+          </div>
+
+          <!-- EXP progress bar -->
+          <div v-if="completeResult?.newExp !== undefined" class="quiz-exp-bar-wrap">
+            <div class="quiz-exp-bar-header">
+              <span>Lv.{{ completeResult.newLevel }}</span>
+              <span>{{ completeResult.newExp }} EXP</span>
+            </div>
+            <div class="quiz-exp-bar-track">
+              <div
+                class="quiz-exp-bar-fill"
+                :style="`width: ${Math.min((completeResult.newExp / (completeResult.newLevel! >= 5 ? 500 : [50,150,300,500][completeResult.newLevel!-1])) * 100, 100)}%`"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Badges unlocked -->
+          <div v-if="completeResult?.newBadges?.length" class="quiz-badges">
+            <p class="quiz-badges__label">解锁成就</p>
+            <div v-for="b in completeResult.newBadges" :key="b.id" class="quiz-badge-item">
+              {{ b.name }}
+            </div>
+          </div>
+
           <button class="quiz-btn quiz-btn--primary quiz-btn--full" @click="emit('close')">继续学习</button>
         </template>
 
@@ -393,5 +423,92 @@ function retry() {
   font-size: 13px;
   color: var(--text-secondary);
   margin: 0;
+}
+
+.quiz-exp-gain {
+  position: relative;
+  height: 32px;
+  display: flex;
+  justify-content: center;
+}
+
+.quiz-exp-float {
+  font-size: 20px;
+  font-weight: 800;
+  color: #fbbf24;
+  animation: exp-float 1.2s ease-out both;
+  display: inline-block;
+}
+
+@keyframes exp-float {
+  0%   { transform: translateY(0);    opacity: 1; }
+  60%  { transform: translateY(-20px); opacity: 1; }
+  100% { transform: translateY(-28px); opacity: 0; }
+}
+
+.quiz-exp-bar-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.quiz-exp-bar-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.quiz-exp-bar-track {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--bg-input);
+  overflow: hidden;
+}
+
+.quiz-exp-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #7c3aed, #fbbf24);
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: bar-grow 0.8s 0.3s ease both;
+}
+
+@keyframes bar-grow {
+  from { width: 0 !important; }
+}
+
+.quiz-badges {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quiz-badges__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #fbbf24;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.quiz-badge-item {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: linear-gradient(135deg, rgba(251,191,36,0.1), rgba(124,58,237,0.1));
+  border: 1px solid rgba(251,191,36,0.3);
+  border-radius: 8px;
+  padding: 6px 10px;
+  animation: badge-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes badge-pop {
+  from { transform: scale(0.7); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
 }
 </style>

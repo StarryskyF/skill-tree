@@ -10,6 +10,7 @@ export class SkillNode {
   @Prop({ required: true }) description: string;
   @Prop({ required: true }) level: number;
   @Prop({ type: [String], default: [] }) prerequisites: string[];
+  @Prop({ default: 10 }) exp: number;
 }
 
 @Schema({ _id: false })

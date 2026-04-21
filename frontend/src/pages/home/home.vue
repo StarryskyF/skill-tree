@@ -1,20 +1,28 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
+import { userApi } from '../../api/user'
+import type { UserStats } from '../../api/user'
 import ThemeToggle from '../../components/ThemeToggle.vue'
 import EditProfileModal from './components/EditProfileModal.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
 const showEditModal = ref(false)
+const userStats = ref<UserStats | null>(null)
 
-const stats = [
-  { icon: '⭐', value: '0', label: '已完成节点' },
-  { icon: '🔥', value: '0', label: '连续学习天数' },
-  { icon: '💎', value: '0', label: '经验值 EXP' },
-  { icon: '🏆', value: '0', label: '技能树数量' },
-]
+const stats = computed(() => [
+  { icon: '⭐', value: String(userStats.value?.completedNodeCount ?? 0), label: '已完成节点' },
+  { icon: '🔥', value: String(userStats.value?.streakDays ?? 0), label: '连续学习天数' },
+  { icon: '💎', value: String(userStats.value?.totalExp ?? 0), label: '经验值 EXP' },
+  { icon: '🏆', value: String(userStats.value?.treeCount ?? 0), label: '技能树数量' },
+])
+
+onMounted(async () => {
+  const res = await userApi.getStats()
+  if (res.data) userStats.value = res.data
+})
 
 function logout() {
   auth.logout()

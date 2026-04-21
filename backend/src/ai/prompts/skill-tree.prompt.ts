@@ -15,6 +15,7 @@ export function buildSkillTreePrompt(goal: string, currentLevel: string): string
 - description: 一句话描述这个节点学什么（不超过50字）
 - level: 节点深度，从0开始（0=基础入门，数字越大越高级）
 - prerequisites: 前置节点的 id 数组（根节点为空数组）
+- exp: 完成该节点获得的经验值，整数，范围5-50，根据节点难度决定（基础节点5-15，中级15-30，高级30-50）
 
 每个 edge 包含：
 - id: 格式为 "edge_1", "edge_2" 等
@@ -29,5 +30,5 @@ export function buildSkillTreePrompt(goal: string, currentLevel: string): string
 5. 结合用户当前水平，跳过已掌握的基础知识
 
 示例结构（不要照抄，根据实际目标生成）：
-{"title":"...","nodes":[{"id":"node_1","title":"...","description":"...","level":0,"prerequisites":[]},{"id":"node_2","title":"...","description":"...","level":1,"prerequisites":["node_1"]}],"edges":[{"id":"edge_1","source":"node_1","target":"node_2"}]}`
+{"title":"...","nodes":[{"id":"node_1","title":"...","description":"...","level":0,"prerequisites":[],"exp":10},{"id":"node_2","title":"...","description":"...","level":1,"prerequisites":["node_1"],"exp":25}],"edges":[{"id":"edge_1","source":"node_1","target":"node_2"}]}`
 }

@@ -6,6 +6,7 @@ import { CreateSkillTreeDto } from './dto/create-skill-tree.dto';
 import { AiService, QuizQuestion } from '../ai/ai.service';
 import { CompleteNodeDto } from './dto/complete-node.dto';
 import { RagService } from '../rag/rag.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class SkillTreesService {
@@ -15,6 +16,7 @@ export class SkillTreesService {
     @InjectModel(SkillTree.name) private skillTreeModel: Model<SkillTreeDocument>,
     private aiService: AiService,
     private ragService: RagService,
+    private usersService: UsersService,
   ) {}
 
   async create(userId: string, dto: CreateSkillTreeDto): Promise<SkillTreeDocument> {
@@ -115,7 +117,16 @@ export class SkillTreesService {
     treeId: string,
     nodeId: string,
     dto: CompleteNodeDto,
-  ): Promise<{ passed: boolean; score: number; newStatuses: Record<string, 'locked' | 'available' | 'completed'> }> {
+  ): Promise<{
+    passed: boolean;
+    score: number;
+    newStatuses: Record<string, 'locked' | 'available' | 'completed'>;
+    expGained?: number;
+    newExp?: number;
+    newLevel?: number;
+    leveledUp?: boolean;
+    newBadges?: Array<{ id: string; name: string }>;
+  }> {
     const tree = await this.findOne(userId, treeId);
     const node = tree.nodes.find((n) => n.id === nodeId);
     if (!node) throw new NotFoundException('节点不存在');
@@ -158,6 +169,16 @@ export class SkillTreesService {
     this.logger.log(`Node completed (treeId=${treeId}, nodeId=${nodeId})`);
 
     const newStatuses = this.computeNodeStatuses(tree.nodes, updatedCompletedNodes);
-    return { passed: true, score, newStatuses };
+
+    // 检查是否完成整棵树
+    const treeComplete = tree.nodes.every((n) => updatedCompletedNodes.includes(n.id));
+    const treeBadges = treeComplete
+      ? [{ id: `tree_complete_${treeId}`, name: `🎓「${tree.title}」完成者` }]
+      : [];
+
+    const expGained = node.exp ?? 10;
+    const { newExp, newLevel, leveledUp, newBadges } = await this.usersService.addExp(userId, expGained, treeBadges);
+
+    return { passed: true, score, newStatuses, expGained, newExp, newLevel, leveledUp, newBadges };
   }
 }
