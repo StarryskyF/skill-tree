@@ -58,10 +58,11 @@ export class AiService {
     const maxRetries = 3;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      let content: string | undefined;
       try {
         this.logger.log(`Generating skill tree (attempt ${attempt}/${maxRetries}): ${goal}`);
         const response = await this.model.invoke([new HumanMessage(prompt)]);
-        const content = typeof response.content === 'string'
+        content = typeof response.content === 'string'
           ? response.content
           : JSON.stringify(response.content);
 
@@ -71,6 +72,7 @@ export class AiService {
         this.logger.log(`Skill tree generated successfully on attempt ${attempt}`);
         return validated;
       } catch (err) {
+        if (content) this.logger.warn(`Raw AI response (attempt ${attempt}): ${content}`);
         this.logger.warn(`Attempt ${attempt} failed: ${(err as Error).message}`);
         if (attempt === maxRetries) {
           throw new Error(`AI 生成失败（已重试 ${maxRetries} 次）：${(err as Error).message}`);
@@ -86,10 +88,11 @@ export class AiService {
     const maxRetries = 3;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      let content: string | undefined;
       try {
         this.logger.log(`Generating quiz (attempt ${attempt}/${maxRetries}): ${title}`);
         const response = await this.model.invoke([new HumanMessage(prompt)]);
-        const content = typeof response.content === 'string'
+        content = typeof response.content === 'string'
           ? response.content
           : JSON.stringify(response.content);
 
@@ -99,6 +102,7 @@ export class AiService {
         this.logger.log(`Quiz generated successfully on attempt ${attempt}`);
         return validated;
       } catch (err) {
+        if (content) this.logger.warn(`Raw AI response (attempt ${attempt}): ${content}`);
         this.logger.warn(`Quiz attempt ${attempt} failed: ${(err as Error).message}`);
         if (attempt === maxRetries) {
           throw new Error(`Quiz 生成失败（已重试 ${maxRetries} 次）：${(err as Error).message}`);

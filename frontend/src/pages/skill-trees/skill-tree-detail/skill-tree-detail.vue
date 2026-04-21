@@ -7,7 +7,7 @@ import { Controls } from '@vue-flow/controls'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/controls/dist/style.css'
 import { getSkillTree, getNodeStatuses } from '../../../api/skill-trees'
-import type { SkillTree, SkillNode, NodeStatus } from '../../../api/skill-trees'
+import type { SkillTree, SkillNode, NodeStatus, QuizQuestion } from '../../../api/skill-trees'
 import ThemeToggle from '../../../components/ThemeToggle.vue'
 import SkillTreeNode from './components/SkillTreeNode.vue'
 import QuizModal from './components/QuizModal.vue'
@@ -19,6 +19,7 @@ const loading = ref(true)
 const error = ref('')
 const nodeStatuses = ref<Record<string, NodeStatus>>({})
 const quizModalNodeId = ref<string | null>(null)
+const nodeQuizCache = ref<Record<string, QuizQuestion[]>>({})
 
 const quizModalNode = computed(() =>
   quizModalNodeId.value
@@ -95,11 +96,14 @@ function onNodeClick({ node }: { node: { id: string; data: { status: NodeStatus 
 
 function onQuizComplete(newStatuses: Record<string, NodeStatus>) {
   nodeStatuses.value = newStatuses
-  quizModalNodeId.value = null
 }
 
 function onQuizClose() {
   quizModalNodeId.value = null
+}
+
+function onQuestionsGenerated(qs: QuizQuestion[]) {
+  if (quizModalNodeId.value) nodeQuizCache.value[quizModalNodeId.value] = qs
 }
 </script>
 
@@ -167,8 +171,10 @@ function onQuizClose() {
       :tree-id="(route.params.id as string)"
       :node-id="quizModalNodeId"
       :node-title="quizModalNode.title"
+      :initial-questions="nodeQuizCache[quizModalNodeId]"
       @complete="onQuizComplete"
       @close="onQuizClose"
+      @questions-generated="onQuestionsGenerated"
     />
   </div>
 </template>

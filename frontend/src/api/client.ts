@@ -9,7 +9,7 @@ export interface ApiResponse<T> {
 
 const apiClient = axios.create({
   baseURL: 'http://localhost:3000/api',
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -26,8 +26,8 @@ export async function get<T>(url: string): Promise<ApiResponse<T>> {
 /**
  * 发起 POST 请求，返回统一格式的 ApiResponse
  */
-export async function post<T>(url: string, body?: unknown): Promise<ApiResponse<T>> {
-  const response = await apiClient.post<ApiResponse<T>>(url, body)
+export async function post<T>(url: string, body?: unknown, options?: { timeout?: number }): Promise<ApiResponse<T>> {
+  const response = await apiClient.post<ApiResponse<T>>(url, body, options)
   return response.data
 }
 

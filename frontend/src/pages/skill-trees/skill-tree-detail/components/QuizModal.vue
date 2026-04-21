@@ -7,11 +7,13 @@ const props = defineProps<{
   treeId: string
   nodeId: string
   nodeTitle: string
+  initialQuestions?: QuizQuestion[]
 }>()
 
 const emit = defineEmits<{
   complete: [newStatuses: Record<string, NodeStatus>]
   close: []
+  questionsGenerated: [questions: QuizQuestion[]]
 }>()
 
 type Phase = 'loading' | 'quiz' | 'result'
@@ -26,10 +28,16 @@ const submitting = ref(false)
 const allAnswered = computed(() => selectedAnswers.value.every((a) => a !== -1))
 
 onMounted(async () => {
+  if (props.initialQuestions) {
+    questions.value = props.initialQuestions
+    phase.value = 'quiz'
+    return
+  }
   try {
     const res = await generateQuiz(props.treeId, props.nodeId)
     if (!res.data) throw new Error(res.message || '生成失败')
     questions.value = res.data
+    emit('questions-generated', res.data)
     phase.value = 'quiz'
   } catch (err) {
     errorMsg.value = (err as Error).message || '题目生成失败，请重试'

@@ -68,7 +68,7 @@ export function getNodeStatuses(treeId: string) {
 }
 
 export function generateQuiz(treeId: string, nodeId: string) {
-  return client.post<QuizQuestion[]>(`/skill-trees/${treeId}/nodes/${nodeId}/quiz`)
+  return client.post<QuizQuestion[]>(`/skill-trees/${treeId}/nodes/${nodeId}/quiz`, undefined, { timeout: 60000 })
 }
 
 export function completeNode(
