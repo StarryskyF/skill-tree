@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 
 interface SkillTreeNodeProps {
@@ -15,7 +16,7 @@ interface SkillTreeNodeProps {
 }
 
 const props = defineProps<SkillTreeNodeProps>()
-const status = props.data.status ?? 'available'
+const status = computed(() => props.data.status ?? 'available')
 </script>
 
 <template>

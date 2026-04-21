@@ -13,18 +13,35 @@ const phase = ref<'form' | 'generating' | 'done' | 'error'>('form')
 const progressPercent = ref(0)
 const progressMessage = ref('')
 const errorMessage = ref('')
+const pdfFile = ref<File | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 let es: EventSource | null = null
+
+function onFileChange(e: Event) {
+  const f = (e.target as HTMLInputElement).files?.[0]
+  if (f && f.type === 'application/pdf' && f.size <= 10 * 1024 * 1024) {
+    pdfFile.value = f
+  }
+}
+
+function removeFile() {
+  pdfFile.value = null
+  if (fileInputRef.value) fileInputRef.value.value = ''
+}
 
 async function submit() {
   if (!goal.value.trim() || !currentLevel.value.trim()) return
 
   phase.value = 'generating'
   progressPercent.value = 10
-  progressMessage.value = '正在提交请求...'
+  progressMessage.value = pdfFile.value ? '正在处理资料...' : '正在提交请求...'
 
   try {
-    const res = await createSkillTree({ goal: goal.value.trim(), currentLevel: currentLevel.value.trim() })
+    const res = await createSkillTree(
+      { goal: goal.value.trim(), currentLevel: currentLevel.value.trim() },
+      pdfFile.value ?? undefined,
+    )
     if (!res.data) throw new Error('创建失败')
 
     const id = res.data._id
@@ -127,7 +144,35 @@ onUnmounted(() => es?.close())
               style="background-color: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-color);"
             />
           </div>
+          <!-- PDF upload -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm font-medium" style="color: var(--text-secondary);">
+              参考资料 <span style="color: var(--text-muted); font-weight: 400;">（可选，PDF，10MB 以内）</span>
+            </label>
+            <div
+              v-if="!pdfFile"
+              class="flex items-center justify-center gap-2 rounded-xl py-4 cursor-pointer transition-colors"
+              style="border: 1.5px dashed var(--border-color); background-color: var(--bg-input); color: var(--text-muted);"
+              @click="fileInputRef?.click()"
+            >
+              <span style="font-size: 18px;">📄</span>
+              <span class="text-sm">点击上传 PDF</span>
+            </div>
+            <div
+              v-else
+              class="flex items-center justify-between rounded-xl px-4 py-3"
+              style="border: 1.5px solid rgba(124,58,237,0.4); background: rgba(124,58,237,0.06);"
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <span>📄</span>
+                <span class="text-sm truncate" style="color: var(--text-primary);">{{ pdfFile.name }}</span>
+              </div>
+              <button class="text-xs ml-2 flex-shrink-0 cursor-pointer" style="color: var(--text-muted);" @click="removeFile">✕</button>
+            </div>
+            <input ref="fileInputRef" type="file" accept=".pdf" class="hidden" @change="onFileChange" />
+          </div>
         </div>
+
         <div class="flex gap-3">
           <button
             @click="handleClose"

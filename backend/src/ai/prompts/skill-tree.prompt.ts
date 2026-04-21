@@ -1,8 +1,11 @@
-export function buildSkillTreePrompt(goal: string, currentLevel: string): string {
+export function buildSkillTreePrompt(goal: string, currentLevel: string, documentContext?: string): string {
+  const docSection = documentContext
+    ? `\n参考资料（请基于此内容规划技能节点，确保节点覆盖资料中的核心知识点）：\n${documentContext}\n`
+    : '';
   return `你是一个专业的学习路径规划师。请根据用户的学习目标和当前水平，生成一个技能树学习路径。
 
 学习目标：${goal}
-当前水平：${currentLevel}
+当前水平：${currentLevel}${docSection}
 
 请返回一个 JSON 对象，包含以下字段：
 - title: 技能树的标题（简洁，如"Vue 3 前端开发技能树"）

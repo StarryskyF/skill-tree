@@ -55,8 +55,8 @@ export class AiService {
     });
   }
 
-  async generateSkillTree(goal: string, currentLevel: string): Promise<SkillTreeAiResult> {
-    const prompt = buildSkillTreePrompt(goal, currentLevel);
+  async generateSkillTree(goal: string, currentLevel: string, documentContext?: string): Promise<SkillTreeAiResult> {
+    const prompt = buildSkillTreePrompt(goal, currentLevel, documentContext);
     const maxRetries = 3;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {

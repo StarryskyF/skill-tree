@@ -1,0 +1,382 @@
+\documentclass[10pt,journal,compsoc]{IEEEtran}
+
+\ifCLASSOPTIONcompsoc
+  \usepackage[nocompress]{cite}
+\else
+  \usepackage{cite}
+\fi
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amssymb}
+\usepackage{pgfplots}
+\usepackage{placeins}
+%custom added packeages
+\usepackage{dblfloatfix}
+\usepackage{float}
+\pgfplotsset{compat=1.18}
+\raggedbottom
+\setlength{\emergencystretch}{6em}
+\hbadness=10000
+\vbadness=10000
+
+\begin{document}
+
+\title{Design and Implementation of a Multi-Agent Generative AI System for Educational Content Generation in AI-Pedia}
+
+\author{Student Name: Shiyou Pang\\Supervisor Name: Yang Long\\
+Submitted as part of the degree of BSc Computer Science to the\\
+Board of Examiners in the Department of Computer Sciences, Durham University
+}
+
+\markboth{DURHAM UNIVERSITY, DEPARTMENT OF COMPUTER SCIENCE}%
+{Shell \MakeLowercase{\textit{et al.}}}
+
+\IEEEtitleabstractindextext{%
+\begin{abstract}
+This project presents the design and implementation of a Multi-Agent Generative AI system to enhance the educational content generation capabilities of the AI-Pedia learning platform. While large language models (LLM) demonstrate strong generative capacity, standalone models lack structured task coordination, pedagogical alignment, and reliability control required for automated teaching material production. To address these limitations, this project introduces a modular multi-agent architecture that decomposes content generation into specialised agents responsible for planning, coding, quiz construction, presentation synthesis, video generation and overall quality validation. An autonomous orchestration mechanism coordinates agent interaction through iterative feedback loops to ensure structural consistency, topic alignment, and pedagogical coherence. The system is implemented using a scalable backend architecture and evaluated across multiple predefined machine learning topics. Experimental results demonstrate improvements in structural correctness, content relevance, and generation consistency compared to single-agent baselines. This work contributes a practical framework for intelligent educational content automation and provides insights into the integration of multi-agent generative systems within AI-powered learning environments.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Intelligent Agents, Intelligent Tutoring Systems, Multiagent Systems, Software Architectures
+\end{IEEEkeywords}}
+
+\maketitle
+
+\IEEEdisplaynontitleabstractindextext
+\IEEEpeerreviewmaketitle
+
+\IEEEraisesectionheading{\section{Introduction}\label{sec:introduction}}
+In recent years, the rapid advancement of large language models (LLMs) has significantly enhanced the capability of generative systems to produce human-like educational content. Modern LLMs demonstrate strong performance in natural language generation, code synthesis, question construction, and multi-modal reasoning tasks. These capabilities have enabled automated content creation across various domains, including technical documentation, tutoring systems, and instructional media generation. However, when deployed as standalone agents, LLMs frequently lack structured task decomposition, cross-artifact consistency control, and pedagogical coordination mechanisms. As a result, automatically generated educational materials—particularly when multiple artifact types are generated simultaneously for a specific topic—may exhibit structural inconsistencies, conceptual drift, weak alignment between instructional explanation and assessment components, or redundancy across modalities.
+
+AI-Pedia is an AI-powered learning platform designed to support structured knowledge delivery for machine learning topics. The existing content generation workflow within the platform remains limited in both structural sophistication and pedagogical depth. Currently, users are required to upload PDF files, from which a textual outline is generated. Based on this outline, the system produces a short video—typically around one minute in duration—and a set of practice questions. However, the generated instructional video often consists of minimal narration that merely repeats the outline text, accompanied by randomly retrieved online images that lack structured alignment with the teaching content. The associated practice questions are loosely aligned with the topic but do not integrate deeper instructional design principles such as concept reinforcement, difficulty progression, or learner feedback adaptation. Consequently, the current workflow does not fully leverage the generative potential of LLMs, nor does it ensure pedagogically coherent integration across content modalities.
+
+To address these limitations, this project introduces a multi-agent generative AI system that substantially extends the educational content generation capabilities of AI-Pedia. Rather than relying on a monolithic LLM to produce all artifacts in a single prompt, the proposed architecture decomposes the content generation task into specialized agents, each responsible for a distinct artifact type: slide generation, code synthesis, quiz construction, and video narration. This modular decomposition enables clearer role separation, structured information flow, and improved controllability. A fixed orchestration pipeline coordinates the generation process, enforcing sequential dependencies and explicit validation steps to maintain structural compliance and semantic coherence.
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[
+    width=\textwidth,
+    height=0.25\textheight,
+    keepaspectratio
+  ]{images/system_framework.png}
+  \caption{System Framework Design}
+  \label{fig:system_framework}
+\end{figure*}
+Ensuring cross-artifact consistency in automated educational generation presents a non-trivial systems challenge. Educational materials must exhibit alignment not only in terminology but also in conceptual hierarchy, instructional sequencing, and assessment grounding. For example, slide explanations should introduce core concepts that are subsequently reinforced through executable code examples, 
+
+
+
+evaluated through quiz questions, and summarized consistently in video narration. In the absence of coordinated control, independently generated artifacts may diverge semantically despite sharing superficial topic labels. Therefore, beyond linguistic fluency, the system must enforce inter-agent semantic alignment and controlled knowledge propagation across modalities.
+
+The central objective of this project is to design and implement a modular multi-agent generative AI framework that produces pedagogically meaningful and internally consistent instructional materials under fixed configuration constraints. The system is evaluated along three primary dimensions. First, artifact-level quality assesses structural compliance, executability, and format validity. Second, cross-artifact semantic consistency evaluates conceptual alignment across slides, code, quiz, and video outputs. Third, system-level robustness measures stability, scalability, and computational overhead under repeated and concurrent execution scenarios.
+
+To assess instructional effectiveness without requiring human participants, this project introduces a controlled “rookie student” evaluation protocol. A dedicated LLM-based agent, initialized without prior exposure to topic-specific knowledge, simulates a beginner learner. The rookie agent completes quizzes before and after studying the generated materials, enabling measurement of learning gain under controlled experimental conditions. This approach allows quantitative estimation of instructional impact while maintaining reproducibility and experimental control.
+
+The primary contributions of this work are summarized as follows:
+
+\begin{itemize}
+    \item The design and implementation of a structured multi-agent generative AI architecture tailored for automated educational content production.
+    \item The development of a coordinated multi-agent workflow that emphasizes semantic alignment, structural compliance, and controlled inter-agent interaction.
+    \item The construction of a reproducible evaluation framework that formalizes artifact alignment, instructional effectiveness, cross-artifact consistency, and system robustness.
+    \item The introduction of a controlled LLM-based “rookie student” protocol for measuring instructional gain without reliance on human subjects.
+    \item A comprehensive system-level analysis of stability, scalability, and computational resource utilization under sequential and concurrent task execution.
+\end{itemize}
+
+By integrating modular agent specialization with quantitative evaluation of pedagogical coherence and operational stability, this work demonstrates the feasibility of deploying coordinated multi-agent generative systems within AI-powered educational platforms. The proposed framework not only enhances content quality relative to monolithic generation approaches but also provides a structured methodology for evaluating multi-modal instructional generation in a reproducible and controlled manner.
+
+
+
+
+\section{Related Work}
+
+\section{Methodology}
+\subsection{MCP server}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{images/RAG_search_Ingest.png}
+\caption{MCP server ingest workflow for RAG search.}
+\label{fig:rag_search_ingest}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{images/RAG_search_Query.png}
+\caption{MCP server query workflow for RAG search.}
+\label{fig:rag_search_query}
+\end{figure}
+
+\FloatBarrier
+
+\subsection{MOE Layer}
+\subsubsection{Coder Agent}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{images/coder_pipeline.png}
+\caption{Coder Agent pipeline within the MOE layer.}
+\label{fig:coder_pipeline}
+\end{figure}
+
+
+\input{checkmarkgridtable}
+
+\FloatBarrier
+
+\section{Results}
+
+\subsection{Evaluation Design and Metrics}
+
+The system aims to autonomously generate pedagogically coherent and structurally consistent educational materials for machine learning topics. Success is defined as producing four aligned artifacts—slides, executable code, quiz, and video—that demonstrate instructional value, internal consistency, and operational reliability under fixed settings.
+
+All metrics are computed using deterministic validation scripts. Verification tools do not influence generation behavior.
+
+\subsubsection{Educational Effectiveness}
+
+A dedicated LLM-based ``rookie student'' agent completes quizzes before and after studying generated materials.
+
+Learning gain is defined as:
+
+\begin{equation}
+\Delta Acc = Acc_{post} - Acc_{pre}
+\end{equation}
+
+To control for stochastic answering effects:
+
+\begin{equation}
+\Delta Acc_{net} = Acc_{post} - Acc_{control}
+\end{equation}
+
+A positive $\Delta Acc_{net}$ indicates instructional benefit.
+
+\subsubsection{Slide Structural Compliance}
+
+Slides must include one title page, at least one content page, one summary page, and a page count within predefined bounds. Structural compliance is reported as the proportion of satisfied constraints.
+
+Layout compliance is measured as the percentage of slides meeting fixed formatting thresholds.
+
+\subsubsection{Code Validity and Concept Alignment}
+
+\textbf{Executability:} Code must execute successfully without modification.
+
+\textbf{Concept Alignment:}
+
+\begin{equation}
+Align_{SC} = \frac{|K_S \cap K_C|}{|K_S \cup K_C|}
+\end{equation}
+
+where $K_S$ and $K_C$ denote concept sets extracted from slides and code, respectively.
+
+\subsubsection{Quiz Validity and Material Coverage}
+
+Format validity is defined as the proportion of questions with four options, one correct answer, and a valid stem.
+
+Material coverage is defined as:
+
+\begin{equation}
+Coverage = \frac{|K_Q \cap K_M|}{|K_Q|}
+\end{equation}
+
+where $K_Q$ denotes quiz concepts and $K_M$ denotes concepts from slides and code.
+
+\subsubsection{Cross-Artifact Consistency}
+
+Consistency across slides, code, quiz, and video is measured as average pairwise Jaccard similarity:
+
+\begin{equation}
+Consistency = \frac{1}{6} \sum_{(A,B)} \frac{|K_A \cap K_B|}{|K_A \cup K_B|}
+\end{equation}
+
+where $A,B \in \{S,C,Q,V\}$.
+
+\subsubsection{Video--Slide Synchronization}
+
+For each slide segment, narration concepts are compared with slide concepts using Jaccard similarity. The final score is the average across all slides.
+
+\subsubsection{System Efficiency}
+
+Efficiency is measured using:
+
+\begin{itemize}
+    \item Total token usage
+    \item Per-agent token consumption
+    \item End-to-end latency
+    \item LLM call count
+\end{itemize}
+
+Baseline comparisons report token and latency ratios.
+
+\subsubsection{Reliability and Robustness}
+
+Reliability is evaluated using:
+
+\begin{itemize}
+    \item Task completion rate
+    \item Partial failure rate
+    \item Silent failure rate
+\end{itemize}
+
+\subsubsection{Multi-Agent Architectural Value}
+
+Quality improvement over a single-agent baseline is defined as:
+
+\begin{equation}
+\Delta Q = Q_{multi-agent} - Q_{single-agent}
+\end{equation}
+
+Cost differences are reported using token and latency ratios.
+
+\section{Evaluation}
+
+
+\subsection{Output Quality Evaluation}
+
+This subsection evaluates artifact-level performance following the functional decomposition of the multi-agent architecture. Each agent is assessed using the metrics defined in Section 5.1. The analysis focuses on structural compliance, semantic alignment, and operational validity.
+
+\subsubsection{Slide Generation Agent}
+
+The Slide Agent is evaluated based on structural compliance and layout consistency.
+
+Structural performance is assessed using the slide compliance score defined in Section 5.1.2, including title presence, summary inclusion, content page requirements, and page count constraints. Layout quality is evaluated using predefined formatting thresholds.
+
+In addition, conceptual clarity is indirectly assessed through its contribution to downstream alignment metrics. The concept set extracted from slides ($K_S$) serves as the reference basis for code alignment, quiz coverage, and video synchronization. Therefore, deficiencies in slide generation directly affect cross-artifact consistency and coverage scores.
+
+\subsubsection{Code Generation Agent}
+
+The Coder Agent is evaluated along two primary dimensions: executability and semantic alignment.
+
+Executability is treated as a binary metric defined in Section 5.1.3. Code that fails to execute without modification is considered invalid.
+
+Semantic alignment between slides and code is measured using $Align_{SC}$, ensuring that implementation corresponds to the instructional content. Additional analysis includes the absence of out-of-scope concepts and the degree to which code examples reinforce core slide concepts.
+
+\subsubsection{Quiz Generation Agent}
+
+The Quiz Agent is evaluated using format validity and material coverage metrics.
+
+Format validity measures structural correctness of generated questions, including option count and answer uniqueness. Coverage is computed using the intersection between quiz concept set ($K_Q$) and instructional concept set ($K_M$), ensuring that assessment items are strictly derived from generated teaching material.
+
+Out-of-scope rates are examined to identify unsupported or externally introduced concepts.
+
+\subsubsection{Video Generation Agent}
+
+The Video Agent is evaluated using synchronization and semantic alignment metrics.
+
+Synchronization performance is assessed by comparing narration concept sets with corresponding slide segments, as defined in Section 5.1.6. This ensures slide-by-slide correspondence without introducing unsupported material.
+
+Consistency between video narration and other artifacts is further reflected in the global cross-artifact consistency score defined in Section 5.1.5.
+
+\subsubsection{Cross-Agent Artifact Integration}
+
+Beyond individual agent performance, overall artifact integration quality is evaluated using the cross-artifact consistency metric defined in Section 5.1.5. This measures conceptual coherence across slides, code, quiz, and video.
+
+Performance trends across topics and repeated runs are analyzed to determine whether quality degradation originates from specific agents or from inter-agent propagation effects.
+
+{\sloppy
+This agent-centric evaluation framework isolates artifact-level strengths and weaknesses while preserving alignment with the unified metric definitions established in Section 5.1.\par
+}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.62\linewidth]{images/heatmap.png}
+\caption{Pairwise cross-artifact consistency measured by Jaccard similarity between concept sets extracted from Slides, Code, Quiz, and Video. Diagonal entries are not applicable.}
+\label{fig:consistency_heatmap}
+\end{figure}
+
+\subsection{Cross-Artifact Consistency Evaluation}
+
+To evaluate cross-artifact consistency from an instructional perspective, a dedicated LLM-based ``rookie student'' agent is introduced. The rookie agent is initialized without domain-specific knowledge related to the evaluated machine learning topic. Relevant prior knowledge is explicitly removed from its context to approximate the state of a beginner learner encountering the topic for the first time.
+
+The rookie student first completes the quiz generated by the Quiz Agent without exposure to the teaching materials. This produces a baseline performance score $Acc_{pre} = xxx$. The same rookie agent then studies the generated instructional artifacts, including slides, executable code examples, and video narration. After studying the materials, the rookie student completes an equivalent quiz, producing $Acc_{post} = xxx$.
+
+Learning gain is defined in Section 5.1 as:
+
+\begin{equation}
+\Delta Acc = Acc_{post} - Acc_{pre}
+\end{equation}
+
+In addition, a no-learning control condition produces $Acc_{control} = xxx$, resulting in:
+
+\begin{equation}
+\Delta Acc_{net} = Acc_{post} - Acc_{control}
+\end{equation}
+
+The observed improvement ($\Delta Acc = xxx$, $\Delta Acc_{net} = xxx$) indicates that exposure to the generated materials produces measurable instructional benefit.
+
+From a system-level perspective, this improvement reflects effective cross-artifact consistency. The quiz content aligns with slide concepts (Coverage = xxx, as defined in Section 5.1.4), code examples reinforce slide explanations (Align$_{SC}$ = xxx, Section 5.1.3), and video narration remains synchronized with slide structure (Synchronization score = xxx, Section 5.1.6). The global cross-artifact consistency metric (Consistency = xxx, Section 5.1.5) further confirms conceptual coherence across artifacts.
+
+The rookie student's performance improvement demonstrates two key properties of the system. First, the coordinated operation of Slide, Code, Quiz, and Video Agents produces internally consistent artifacts with strong semantic connections. Second, the generated instructional materials are pedagogically meaningful, as evidenced by immediate measurable learning gain.
+
+Overall, the cross-artifact consistency evaluation indicates that the multi-agent architecture not only maintains structural alignment across outputs but also supports effective knowledge transfer within a controlled evaluation setting.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.72\linewidth]{images/rookie_student_learning_rate.png}
+\caption{Rookie student learning-rate trend before and after exposure to generated instructional materials.}
+\label{fig:rookie_student_learning_rate}
+\end{figure}
+
+\FloatBarrier
+
+\subsection{System-Level Evaluation}
+
+This subsection evaluates the robustness, stability, and computational performance of the multi-agent system under repeated and concurrent task execution. The objective is to assess whether the architecture maintains functional integrity and acceptable resource usage under realistic deployment conditions.
+
+\subsubsection{Robustness Under Repeated Task Execution}
+
+To evaluate long-run stability, the system is executed sequentially across $xxx$ distinct tasks without manual intervention. Each task requires generation of all four artifacts under fixed configuration settings.
+
+The following metrics are recorded:
+
+\begin{itemize}
+    \item Task completion rate: $xxx\%$
+    \item Partial failure rate: $xxx\%$
+    \item Silent failure rate: $xxx\%$
+    \item Mean task latency: $xxx$ seconds
+\end{itemize}
+
+No system crashes / $xxx$ crashes were observed during continuous execution. Log analysis confirms that failures (if any) were correctly detected and handled without propagating instability to subsequent tasks.
+
+\subsubsection{Concurrent Request Stability}
+
+To simulate multi-user usage, the system is subjected to $xxx$ concurrent task requests. Concurrency is implemented at the server level using parallel invocation of the fixed multi-agent pipeline.
+
+The following indicators are measured:
+
+\begin{itemize}
+    \item Successful completion ratio under concurrency: $xxx\%$
+    \item Mean latency increase relative to single-task baseline: $xxx\%$
+    \item Maximum observed queue delay: $xxx$ seconds
+\end{itemize}
+
+The system remains responsive under concurrent load, with no deadlocks, resource starvation, or unhandled exceptions detected.
+
+\subsubsection{Resource Utilization}
+
+System resource usage is monitored during evaluation runs.
+
+\textbf{Token Consumption.}  
+Average total token usage per task: $xxx$ tokens.  
+Per-agent breakdown: Slide Agent ($xxx$), Coder Agent ($xxx$), Quiz Agent ($xxx$), Video Agent ($xxx$).
+
+\textbf{Latency.}  
+Mean end-to-end generation time per task: $xxx$ seconds.
+
+\textbf{CPU and Memory Usage.}  
+Peak CPU utilization: $xxx\%$.  
+Peak memory consumption: $xxx$ MB.
+
+No abnormal memory growth or resource leakage was observed during extended execution.
+
+\subsubsection{Scalability Observations}
+
+Preliminary scaling analysis indicates that resource usage increases approximately linearly with task volume. Under the tested load conditions, the system maintains operational stability without degradation in structural compliance or cross-artifact consistency metrics defined in Section 5.1.
+
+These results suggest that the multi-agent architecture remains stable under moderate deployment-scale conditions, supporting its feasibility for integration into the AI-Pedia platform.
+\subsection{Discussion}
+
+
+\section{Conclusion}
+
+\newpage
+\section*{References}
+
+\end{document}

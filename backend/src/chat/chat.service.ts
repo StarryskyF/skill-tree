@@ -75,10 +75,16 @@ export class ChatService {
       ? `\n当前讨论的节点：${focusedNode.title}\n节点描述：${focusedNode.description}`
       : '';
 
-    // 检索用户相关错题记录
-    const pastMistakes = await this.ragService.searchMistakes(userId, String(chat.skillTreeId), dto.content);
+    // 并行检索错题记录和文档资料
+    const [pastMistakes, docChunks] = await Promise.all([
+      this.ragService.searchMistakes(userId, String(chat.skillTreeId), dto.content),
+      this.ragService.searchDocuments(userId, String(chat.skillTreeId), dto.content),
+    ]);
     const mistakesText = pastMistakes.length > 0
       ? `\n用户历史错题（请结合这些薄弱点回答）：\n${pastMistakes.map((m, i) => `${i + 1}. ${m}`).join('\n')}`
+      : '';
+    const docText = docChunks.length > 0
+      ? `\n参考资料片段（用户上传的学习资料，回答时可引用）：\n${docChunks.map((c, i) => `${i + 1}. ${c}`).join('\n')}`
       : '';
 
     // 路径相似度分析
@@ -99,6 +105,7 @@ ${nodeListText}
 ${focusedNodeText}
 ${pathAnalysisText}
 ${mistakesText}
+${docText}
 请用中文回答，回答要简洁、专业、有针对性。如果用户有历史错题，请在回答时有针对性地帮助他纠正误区。根据路径分析，在合适的时候引导用户按推荐顺序学习下一个节点。如果用户的问题与当前学习内容无关，请温和地引导回学习主题。`;
 
     const historyMessages = chat.messages.slice(-20).map((m) =>

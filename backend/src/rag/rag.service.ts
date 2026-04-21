@@ -15,7 +15,6 @@ export class RagService {
   private readonly logger = new Logger(RagService.name);
   private readonly embeddings: OpenAIEmbeddings;
   private readonly qdrantUrl: string;
-  private readonly collectionName = 'quiz_mistakes';
 
   constructor(private readonly config: ConfigService) {
     this.embeddings = new OpenAIEmbeddings({
@@ -25,10 +24,10 @@ export class RagService {
     this.qdrantUrl = config.get<string>('QDRANT_URL') ?? 'http://localhost:6333';
   }
 
-  private getStore(): QdrantVectorStore {
+  private getStore(collectionName: string): QdrantVectorStore {
     return new QdrantVectorStore(this.embeddings, {
       url: this.qdrantUrl,
-      collectionName: this.collectionName,
+      collectionName,
     });
   }
 
@@ -49,7 +48,7 @@ export class RagService {
         }),
     );
 
-    const store = this.getStore();
+    const store = this.getStore('quiz_mistakes');
     await store.addDocuments(docs);
     this.logger.log(`Stored ${docs.length} quiz mistake(s) for node ${nodeId}`);
   }
@@ -61,7 +60,7 @@ export class RagService {
     k = 3,
   ): Promise<string[]> {
     try {
-      const store = this.getStore();
+      const store = this.getStore('quiz_mistakes');
       const results = await store.similaritySearch(query, k, {
         must: [
           { key: 'metadata.userId', match: { value: userId } },
@@ -70,8 +69,42 @@ export class RagService {
       });
       return results.map((r) => r.pageContent);
     } catch (err) {
-      // Qdrant 集合不存在时（还没有存过错题）静默返回空数组
       this.logger.warn(`RAG search skipped: ${(err as Error).message}`);
+      return [];
+    }
+  }
+
+  async storeDocument(userId: string, skillTreeId: string, chunks: string[]): Promise<void> {
+    if (chunks.length === 0) return;
+    const docs = chunks.map(
+      (chunk) =>
+        new Document({
+          pageContent: chunk,
+          metadata: { userId, skillTreeId, type: 'document' },
+        }),
+    );
+    const store = this.getStore('skill_documents');
+    await store.addDocuments(docs);
+    this.logger.log(`Stored ${docs.length} document chunk(s) for skillTree ${skillTreeId}`);
+  }
+
+  async searchDocuments(
+    userId: string,
+    skillTreeId: string,
+    query: string,
+    k = 5,
+  ): Promise<string[]> {
+    try {
+      const store = this.getStore('skill_documents');
+      const results = await store.similaritySearch(query, k, {
+        must: [
+          { key: 'metadata.userId', match: { value: userId } },
+          { key: 'metadata.skillTreeId', match: { value: skillTreeId } },
+        ],
+      });
+      return results.map((r) => r.pageContent);
+    } catch (err) {
+      this.logger.warn(`Document search skipped: ${(err as Error).message}`);
       return [];
     }
   }

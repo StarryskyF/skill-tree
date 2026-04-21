@@ -8,6 +8,7 @@ import { CompleteNodeDto } from './dto/complete-node.dto';
 import { RagService } from '../rag/rag.service';
 import { UsersService } from '../users/users.service';
 import { analyzePathSimilarity, PathAnalysisResult } from './path-analysis.util';
+import * as pdfParse from 'pdf-parse';
 
 @Injectable()
 export class SkillTreesService {
@@ -20,7 +21,7 @@ export class SkillTreesService {
     private usersService: UsersService,
   ) {}
 
-  async create(userId: string, dto: CreateSkillTreeDto): Promise<SkillTreeDocument> {
+  async create(userId: string, dto: CreateSkillTreeDto, file?: Express.Multer.File): Promise<SkillTreeDocument> {
     const skillTree = await this.skillTreeModel.create({
       userId,
       goal: dto.goal,
@@ -30,14 +31,37 @@ export class SkillTreesService {
 
     this.logger.log(`Skill tree created (id=${skillTree.id}), starting async generation`);
 
-    setImmediate(() => this.runGeneration(skillTree.id as string, dto.goal, dto.currentLevel));
+    let hasPdf = false;
+    if (file) {
+      try {
+        const parsed = await pdfParse(file.buffer);
+        const text = parsed.text.replace(/\s+/g, ' ').trim();
+        const chunks: string[] = [];
+        for (let i = 0; i < text.length && chunks.length < 20; i += 800) {
+          const chunk = text.slice(i, i + 800).trim();
+          if (chunk.length > 50) chunks.push(chunk);
+        }
+        await this.ragService.storeDocument(userId, skillTree.id as string, chunks);
+        hasPdf = true;
+        this.logger.log(`PDF processed: ${chunks.length} chunks stored for skillTree ${skillTree.id}`);
+      } catch (err) {
+        this.logger.error(`PDF parse failed: ${(err as Error).message}`);
+      }
+    }
+
+    setImmediate(() => this.runGeneration(skillTree.id as string, userId, dto.goal, dto.currentLevel, hasPdf));
 
     return skillTree;
   }
 
-  private async runGeneration(id: string, goal: string, currentLevel: string) {
+  private async runGeneration(id: string, userId: string, goal: string, currentLevel: string, hasPdf: boolean) {
     try {
-      const result = await this.aiService.generateSkillTree(goal, currentLevel);
+      let documentContext: string | undefined;
+      if (hasPdf) {
+        const chunks = await this.ragService.searchDocuments(userId, id, goal, 5);
+        if (chunks.length > 0) documentContext = chunks.join('\n\n');
+      }
+      const result = await this.aiService.generateSkillTree(goal, currentLevel, documentContext);
       await this.skillTreeModel.findByIdAndUpdate(id, {
         status: 'ready',
         title: result.title,

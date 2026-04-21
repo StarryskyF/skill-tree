@@ -7,8 +7,11 @@ import {
   Post,
   Req,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SkillTreesService } from './skill-trees.service';
@@ -31,8 +34,13 @@ export class SkillTreesController {
   ) {}
 
   @Post()
-  create(@Req() req: AuthRequest, @Body() dto: CreateSkillTreeDto) {
-    return this.skillTreesService.create(req.user.id, dto);
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  create(
+    @Req() req: AuthRequest,
+    @Body() dto: CreateSkillTreeDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.skillTreesService.create(req.user.id, dto, file);
   }
 
   @Get()

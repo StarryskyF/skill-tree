@@ -69,8 +69,13 @@ export interface CreateSkillTreeDto {
   currentLevel: string
 }
 
-export function createSkillTree(dto: CreateSkillTreeDto) {
-  return client.post<SkillTree>('/skill-trees', dto)
+export function createSkillTree(dto: CreateSkillTreeDto, file?: File) {
+  if (!file) return client.post<SkillTree>('/skill-trees', dto)
+  const form = new FormData()
+  form.append('goal', dto.goal)
+  form.append('currentLevel', dto.currentLevel)
+  form.append('file', file)
+  return client.postForm<SkillTree>('/skill-trees', form)
 }
 
 export function getSkillTrees() {
