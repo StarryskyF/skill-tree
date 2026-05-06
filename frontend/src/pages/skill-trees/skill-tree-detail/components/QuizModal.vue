@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { generateQuiz, completeNode } from '../../../../api/skill-trees'
-import type { QuizQuestion, NodeStatus, CompleteNodeResult } from '../../../../api/skill-trees'
+import type { QuizQuestion, CompleteNodeResult } from '../../../../api/skill-trees'
 
 const props = defineProps<{
   treeId: string
@@ -38,7 +38,7 @@ onMounted(async () => {
     const res = await generateQuiz(props.treeId, props.nodeId)
     if (!res.data) throw new Error(res.message || '生成失败')
     questions.value = res.data
-    emit('questions-generated', res.data)
+    emit('questionsGenerated', res.data)
     phase.value = 'quiz'
   } catch (err) {
     errorMsg.value = (err as Error).message || '题目生成失败，请重试'

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
@@ -41,14 +41,14 @@ const quizModalNode = computed(() =>
     : null,
 )
 
-const nodeTypes = { skillNode: SkillTreeNode }
+const nodeTypes = { skillNode: SkillTreeNode as Component }
 
 function layoutNodes(nodes: SkillNode[]) {
   const byLevel: Record<number, SkillNode[]> = {}
   for (const n of nodes) {
     ;(byLevel[n.level] ??= []).push(n)
   }
-  const result = []
+  const result: Array<{ id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown> }> = []
   for (const [lvl, group] of Object.entries(byLevel)) {
     const level = Number(lvl)
     const count = group.length
@@ -169,6 +169,11 @@ function onAskAi(message: string) {
   chatPendingMessage.value = message
 }
 
+function onHighlightNodes(ids: string[]) {
+  ids.forEach(id => justUnlockedNodeIds.value.add(id))
+  setTimeout(() => { justUnlockedNodeIds.value = new Set() }, 2000)
+}
+
 const nodeIdToTitle = computed(() => {
   const map: Record<string, string> = {}
   for (const n of skillTree.value?.nodes ?? []) map[n.id] = n.title
@@ -206,7 +211,7 @@ const nodeIdToTitle = computed(() => {
         <span>{{ skillTree.completedNodes.length }}/{{ skillTree.nodes.length }} 节点</span>
         <span class="detail-info__dot">·</span>
         <span>
-          {{ skillTree.nodes.filter(n => skillTree.completedNodes.includes(n.id)).reduce((s, n) => s + (n.exp ?? 10), 0) }}
+          {{ skillTree!.nodes.filter(n => skillTree!.completedNodes.includes(n.id)).reduce((s, n) => s + (n.exp ?? 10), 0) }}
           /
           {{ skillTree.nodes.reduce((s, n) => s + (n.exp ?? 10), 0) }} EXP
         </span>
@@ -246,7 +251,7 @@ const nodeIdToTitle = computed(() => {
           :analysis="pathAnalysis"
           :node-id-to-title="nodeIdToTitle"
           @ask-ai="onAskAi"
-          @highlight-nodes="(ids) => { ids.forEach(id => justUnlockedNodeIds.value.add(id)); setTimeout(() => justUnlockedNodeIds.value = new Set(), 2000) }"
+          @highlight-nodes="onHighlightNodes"
         />
         <ChatPanel
           :skill-tree-id="skillTree._id"

@@ -19,7 +19,6 @@ const isStreaming = ref(false)
 const streamingContent = ref('')
 const showHistory = ref(false)
 const messagesEndRef = ref<HTMLElement | null>(null)
-const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
 async function scrollToBottom() {
   await nextTick()
