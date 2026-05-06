@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: skilltree-backend
+    restart: always
+    ports:
+      - "3002:3000"
+    environment:
+      PORT: 3000
+      MONGODB_URI: mongodb://mongo:27017/skill-tree
+      QDRANT_URL: http://qdrant:6333
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    networks:
+      - playlist_default
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: skilltree-frontend
+    restart: always
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+    networks:
+      - playlist_default
+
+networks:
+  playlist_default:
+    external: true
