@@ -23,7 +23,7 @@ export interface ChatListItem {
   createdAt: string
 }
 
-const BASE_URL = 'http://localhost:3000/api'
+const BASE_URL = '/api'
 
 function getToken(): string {
   try {

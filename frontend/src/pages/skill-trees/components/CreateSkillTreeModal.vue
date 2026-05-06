@@ -50,7 +50,7 @@ async function submit() {
       catch { return '' }
     })()
 
-    es = new EventSource(`http://localhost:3000/api/skill-trees/${id}/progress?token=${token}`)
+    es = new EventSource(`/api/skill-trees/${id}/progress?token=${token}`)
 
     es.addEventListener('progress', (e) => {
       const d = JSON.parse(e.data)
