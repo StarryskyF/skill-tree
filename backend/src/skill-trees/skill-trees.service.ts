@@ -8,7 +8,8 @@ import { CompleteNodeDto } from './dto/complete-node.dto';
 import { RagService } from '../rag/rag.service';
 import { UsersService } from '../users/users.service';
 import { analyzePathSimilarity, PathAnalysisResult } from './path-analysis.util';
-import * as pdfParse from 'pdf-parse';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require('pdf-parse');
 
 @Injectable()
 export class SkillTreesService {
