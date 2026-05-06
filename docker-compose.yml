@@ -11,7 +11,7 @@ services:
       - "3002:3000"
     environment:
       PORT: 3000
-      MONGODB_URI: mongodb://mongo:27017/skill-tree
+      MONGODB_URI: ${MONGODB_URI}
       QDRANT_URL: http://qdrant:6333
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
@@ -19,7 +19,7 @@ services:
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     networks:
-      - playlist_default
+      - root_app-network
 
   frontend:
     build:
@@ -32,8 +32,8 @@ services:
     depends_on:
       - backend
     networks:
-      - playlist_default
+      - root_app-network
 
 networks:
-  playlist_default:
+  root_app-network:
     external: true
