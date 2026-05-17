@@ -6,6 +6,7 @@ import type { AIMessageChunk } from '@langchain/core/messages';
 import { z } from 'zod';
 import { buildSkillTreePrompt } from './prompts/skill-tree.prompt';
 import { buildQuizPrompt } from './prompts/quiz.prompt';
+import type { AppLanguage } from '../skill-trees/dto/create-skill-tree.dto';
 
 const SkillNodeSchema = z.object({
   id: z.string(),
@@ -55,14 +56,19 @@ export class AiService {
     });
   }
 
-  async generateSkillTree(goal: string, currentLevel: string, documentContext?: string): Promise<SkillTreeAiResult> {
-    const prompt = buildSkillTreePrompt(goal, currentLevel, documentContext);
+  async generateSkillTree(
+    goal: string,
+    currentLevel: string,
+    documentContext?: string,
+    language: AppLanguage = 'zh-CN',
+  ): Promise<SkillTreeAiResult> {
+    const prompt = buildSkillTreePrompt(goal, currentLevel, documentContext, language);
     const maxRetries = 3;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       let content: string | undefined;
       try {
-        this.logger.log(`Generating skill tree (attempt ${attempt}/${maxRetries}): ${goal}`);
+        this.logger.log(`Generating skill tree (attempt ${attempt}/${maxRetries}, language=${language}): ${goal}`);
         const response = await this.model.invoke([new HumanMessage(prompt)]);
         content = typeof response.content === 'string'
           ? response.content
@@ -77,7 +83,7 @@ export class AiService {
         if (content) this.logger.warn(`Raw AI response (attempt ${attempt}): ${content}`);
         this.logger.warn(`Attempt ${attempt} failed: ${(err as Error).message}`);
         if (attempt === maxRetries) {
-          throw new Error(`AI 生成失败（已重试 ${maxRetries} 次）：${(err as Error).message}`);
+          throw new Error(`AI generation failed after ${maxRetries} retries: ${(err as Error).message}`);
         }
       }
     }
@@ -89,14 +95,19 @@ export class AiService {
     return this.model.stream(messages);
   }
 
-  async generateQuiz(title: string, description: string, treeGoal: string): Promise<QuizQuestion[]> {
-    const prompt = buildQuizPrompt(title, description, treeGoal);
+  async generateQuiz(
+    title: string,
+    description: string,
+    treeGoal: string,
+    language: AppLanguage = 'zh-CN',
+  ): Promise<QuizQuestion[]> {
+    const prompt = buildQuizPrompt(title, description, treeGoal, language);
     const maxRetries = 3;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       let content: string | undefined;
       try {
-        this.logger.log(`Generating quiz (attempt ${attempt}/${maxRetries}): ${title}`);
+        this.logger.log(`Generating quiz (attempt ${attempt}/${maxRetries}, language=${language}): ${title}`);
         const response = await this.model.invoke([new HumanMessage(prompt)]);
         content = typeof response.content === 'string'
           ? response.content
@@ -111,7 +122,7 @@ export class AiService {
         if (content) this.logger.warn(`Raw AI response (attempt ${attempt}): ${content}`);
         this.logger.warn(`Quiz attempt ${attempt} failed: ${(err as Error).message}`);
         if (attempt === maxRetries) {
-          throw new Error(`Quiz 生成失败（已重试 ${maxRetries} 次）：${(err as Error).message}`);
+          throw new Error(`Quiz generation failed after ${maxRetries} retries: ${(err as Error).message}`);
         }
       }
     }

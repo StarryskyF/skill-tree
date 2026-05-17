@@ -67,6 +67,7 @@ export interface PathAnalysisResult {
 export interface CreateSkillTreeDto {
   goal: string
   currentLevel: string
+  language?: 'zh-CN' | 'en-US'
 }
 
 export function createSkillTree(dto: CreateSkillTreeDto, file?: File) {
@@ -74,6 +75,7 @@ export function createSkillTree(dto: CreateSkillTreeDto, file?: File) {
   const form = new FormData()
   form.append('goal', dto.goal)
   form.append('currentLevel', dto.currentLevel)
+  if (dto.language) form.append('language', dto.language)
   form.append('file', file)
   return client.postForm<SkillTree>('/skill-trees', form)
 }
@@ -94,8 +96,8 @@ export function getNodeStatuses(treeId: string) {
   return client.get<Record<string, NodeStatus>>(`/skill-trees/${treeId}/node-statuses`)
 }
 
-export function generateQuiz(treeId: string, nodeId: string) {
-  return client.post<QuizQuestion[]>(`/skill-trees/${treeId}/nodes/${nodeId}/quiz`, undefined, { timeout: 60000 })
+export function generateQuiz(treeId: string, nodeId: string, language?: 'zh-CN' | 'en-US') {
+  return client.post<QuizQuestion[]>(`/skill-trees/${treeId}/nodes/${nodeId}/quiz`, { language }, { timeout: 60000 })
 }
 
 export function completeNode(

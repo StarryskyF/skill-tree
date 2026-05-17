@@ -54,6 +54,7 @@ export async function* streamMessage(
   chatId: string,
   content: string,
   nodeId?: string,
+  language?: 'zh-CN' | 'en-US',
 ): AsyncGenerator<string> {
   const res = await fetch(`${BASE_URL}/chats/${chatId}/messages`, {
     method: 'POST',
@@ -61,11 +62,11 @@ export async function* streamMessage(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${getToken()}`,
     },
-    body: JSON.stringify({ content, nodeId }),
+    body: JSON.stringify({ content, nodeId, language }),
   })
 
   if (!res.ok || !res.body) {
-    throw new Error('请求失败')
+    throw new Error('Request failed')
   }
 
   const reader = res.body.getReader()

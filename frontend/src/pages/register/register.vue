@@ -3,25 +3,60 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../../stores/auth'
+import { useI18n } from '../../i18n'
 import ThemeToggle from '../../components/ThemeToggle.vue'
+import LanguageToggle from '../../components/LanguageToggle.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
+const { t } = useI18n()
 
 const username = ref('')
 const password = ref('')
 const name = ref('')
 const loading = ref(false)
 
+const USERNAME_MIN_LENGTH = 3
+const USERNAME_MAX_LENGTH = 32
+const NAME_MAX_LENGTH = 30
+const PASSWORD_MIN_LENGTH = 6
+const PASSWORD_MAX_LENGTH = 16
+
+function validateRegisterForm() {
+  const trimmedUsername = username.value.trim()
+  const trimmedName = name.value.trim()
+
+  if (!trimmedName || !trimmedUsername || !password.value) {
+    ElMessage.warning(t('auth.validationRequiredRegister'))
+    return false
+  }
+  if (trimmedName.length > NAME_MAX_LENGTH) {
+    ElMessage.warning(t('auth.validationNameLength', { max: NAME_MAX_LENGTH }))
+    return false
+  }
+  if (trimmedUsername.length < USERNAME_MIN_LENGTH || trimmedUsername.length > USERNAME_MAX_LENGTH) {
+    ElMessage.warning(t('auth.validationUsernameLength', { min: USERNAME_MIN_LENGTH, max: USERNAME_MAX_LENGTH }))
+    return false
+  }
+  if (password.value.length < PASSWORD_MIN_LENGTH || password.value.length > PASSWORD_MAX_LENGTH) {
+    ElMessage.warning(t('auth.validationPasswordLength', { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH }))
+    return false
+  }
+
+  username.value = trimmedUsername
+  name.value = trimmedName
+  return true
+}
+
 async function handleRegister() {
-  if (!username.value || !password.value || !name.value) return
+  if (!validateRegisterForm()) return
   loading.value = true
   try {
     await auth.registerAction(username.value, password.value, name.value)
-    ElMessage.success('注册成功，请登录')
+    ElMessage.success(t('auth.registerSuccess'))
     router.push('/login')
   } catch (err: any) {
-    ElMessage.error(err.message || '注册失败')
+    ElMessage.error(err.message || t('auth.registerFailed'))
   } finally {
     loading.value = false
   }
@@ -30,17 +65,15 @@ async function handleRegister() {
 
 <template>
   <div class="min-h-screen flex" style="background-color: var(--bg-page);">
-    <!-- Theme toggle -->
-    <div class="fixed top-4 right-4 z-10">
+    <div class="fixed top-4 right-4 z-10 flex items-center gap-2">
+      <LanguageToggle />
       <ThemeToggle />
     </div>
 
-    <!-- Left: Brand Panel -->
     <div
       class="hidden lg:flex flex-col justify-center items-center w-1/2 relative overflow-hidden"
       style="background: linear-gradient(135deg, #0a1628 0%, #0f0f1a 50%, #1a0533 100%);"
     >
-      <!-- Decorative node grid -->
       <div class="absolute inset-0 opacity-20">
         <div
           v-for="i in 20"
@@ -70,90 +103,91 @@ async function handleRegister() {
       <div class="relative z-10 text-center px-12">
         <div class="flex items-center justify-center mb-6">
           <div
-            class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg"
+            class="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-black text-white shadow-lg"
             style="background: linear-gradient(135deg, #06b6d4, #7c3aed);"
           >
-            🚀
+            ST
           </div>
         </div>
-        <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">开启旅程</h1>
-        <p class="text-lg mb-8" style="color: #22d3ee;">从这里迈出第一步</p>
+        <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">{{ t('auth.createAccount') }}</h1>
+        <p class="text-lg mb-8" style="color: #22d3ee;">{{ t('auth.registerSubtitle') }}</p>
 
         <div class="space-y-4 text-left">
           <div class="flex items-start gap-3">
-            <span class="text-xl mt-0.5">🗺️</span>
+            <span class="text-xl mt-0.5 text-cyan-300">01</span>
             <div>
-              <p class="text-white font-medium text-sm">专属学习路径</p>
-              <p class="text-xs" style="color: #64748b;">AI 为你量身定制技能地图</p>
+              <p class="text-white font-medium text-sm">{{ t('brand.featureTreeTitle') }}</p>
+              <p class="text-xs" style="color: #64748b;">{{ t('brand.featureTreeDesc') }}</p>
             </div>
           </div>
           <div class="flex items-start gap-3">
-            <span class="text-xl mt-0.5">🏆</span>
+            <span class="text-xl mt-0.5 text-cyan-300">02</span>
             <div>
-              <p class="text-white font-medium text-sm">成就与徽章</p>
-              <p class="text-xs" style="color: #64748b;">每次突破都值得庆祝</p>
+              <p class="text-white font-medium text-sm">{{ t('brand.featureRewardTitle') }}</p>
+              <p class="text-xs" style="color: #64748b;">{{ t('brand.featureRewardDesc') }}</p>
             </div>
           </div>
           <div class="flex items-start gap-3">
-            <span class="text-xl mt-0.5">💬</span>
+            <span class="text-xl mt-0.5 text-cyan-300">03</span>
             <div>
-              <p class="text-white font-medium text-sm">AI 实时答疑</p>
-              <p class="text-xs" style="color: #64748b;">遇到问题随时获得帮助</p>
+              <p class="text-white font-medium text-sm">{{ t('brand.featureTutorTitle') }}</p>
+              <p class="text-xs" style="color: #64748b;">{{ t('brand.featureTutorDesc') }}</p>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Right: Register Form -->
     <div class="flex-1 flex items-center justify-center px-6 py-12">
       <div
         class="w-full max-w-md rounded-2xl p-8"
         style="background-color: var(--bg-card); box-shadow: var(--shadow-card); border: 1px solid var(--border-color);"
       >
-        <!-- Mobile logo -->
         <div class="flex items-center gap-3 mb-8 lg:hidden">
           <div
-            class="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+            class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white"
             style="background: linear-gradient(135deg, #06b6d4, #7c3aed);"
           >
-            🚀
+            ST
           </div>
-          <span class="text-lg font-bold" style="color: var(--text-primary);">Skill Tree</span>
+          <span class="text-lg font-bold" style="color: var(--text-primary);">{{ t('common.appName') }}</span>
         </div>
 
-        <h2 class="text-2xl font-bold mb-1" style="color: var(--text-primary);">创建账号</h2>
-        <p class="text-sm mb-8" style="color: var(--text-muted);">免费注册，立即开始学习</p>
+        <h2 class="text-2xl font-bold mb-1" style="color: var(--text-primary);">{{ t('auth.createAccount') }}</h2>
+        <p class="text-sm mb-8" style="color: var(--text-muted);">{{ t('auth.registerSubtitle') }}</p>
 
         <div class="space-y-5">
           <div>
-            <label class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary);">昵称</label>
+            <label class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary);">{{ t('auth.name') }}</label>
             <input
               v-model="name"
               type="text"
-              placeholder="你希望被如何称呼"
+              :maxlength="NAME_MAX_LENGTH"
+              :placeholder="t('auth.namePlaceholder')"
               class="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all duration-200"
               style="background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary);"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary);">用户名</label>
+            <label class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary);">{{ t('auth.username') }}</label>
             <input
               v-model="username"
               type="text"
-              placeholder="用于登录的唯一标识"
+              :maxlength="USERNAME_MAX_LENGTH"
+              :placeholder="t('auth.usernamePlaceholder')"
               class="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all duration-200"
               style="background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary);"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary);">密码</label>
+            <label class="block text-sm font-medium mb-1.5" style="color: var(--text-secondary);">{{ t('auth.password') }}</label>
             <input
               v-model="password"
               type="password"
-              placeholder="至少 6 位"
+              :maxlength="PASSWORD_MAX_LENGTH"
+              :placeholder="t('auth.passwordRegisterPlaceholder')"
               class="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all duration-200"
               style="background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary);"
               @keyup.enter="handleRegister"
@@ -166,14 +200,14 @@ async function handleRegister() {
             class="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95 disabled:opacity-60 cursor-pointer"
             style="background: linear-gradient(135deg, #06b6d4, #7c3aed);"
           >
-            <span v-if="loading">注册中...</span>
-            <span v-else>注 册</span>
+            <span v-if="loading">{{ t('auth.registering') }}</span>
+            <span v-else>{{ t('auth.register') }}</span>
           </button>
         </div>
 
         <p class="mt-6 text-center text-sm" style="color: var(--text-muted);">
-          已有账号？
-          <router-link to="/login" class="font-medium hover:underline" style="color: #8b5cf6;">立即登录</router-link>
+          {{ t('auth.hasAccount') }}
+          <router-link to="/login" class="font-medium hover:underline" style="color: #8b5cf6;">{{ t('auth.loginNow') }}</router-link>
         </p>
       </div>
     </div>

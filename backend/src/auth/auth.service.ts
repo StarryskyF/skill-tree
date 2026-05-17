@@ -21,9 +21,9 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const user = await this.usersService.findByUsername(dto.username);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user) throw new UnauthorizedException('用户名或密码错误');
     const valid = await bcrypt.compare(dto.password, user.password);
-    if (!valid) throw new UnauthorizedException('Invalid credentials');
+    if (!valid) throw new UnauthorizedException('用户名或密码错误');
     const payload = { sub: (user._id as any).toString(), username: user.username };
     const access_token = this.jwtService.sign(payload);
     this.logger.log(`User logged in: ${user.username}`);

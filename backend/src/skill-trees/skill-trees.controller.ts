@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SkillTreesService } from './skill-trees.service';
 import { CreateSkillTreeDto } from './dto/create-skill-tree.dto';
 import { CompleteNodeDto } from './dto/complete-node.dto';
+import { GenerateQuizDto } from './dto/generate-quiz.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SkillTree, SkillTreeDocument } from './schemas/skill-tree.schema';
@@ -58,8 +59,9 @@ export class SkillTreesController {
     @Req() req: AuthRequest,
     @Param('id') id: string,
     @Param('nodeId') nodeId: string,
+    @Body() dto: GenerateQuizDto,
   ) {
-    return this.skillTreesService.generateNodeQuiz(req.user.id, id, nodeId);
+    return this.skillTreesService.generateNodeQuiz(req.user.id, id, nodeId, dto.language);
   }
 
   @Post(':id/nodes/:nodeId/complete')
@@ -90,7 +92,7 @@ export class SkillTreesController {
   @Get(':id/progress')
   async streamProgress(
     @Param('id') id: string,
-    @Req() req: AuthRequest & { query: { token?: string } },
+    @Req() req: AuthRequest & { query: { token?: string; language?: string } },
     @Res() res: Response,
   ) {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -98,11 +100,12 @@ export class SkillTreesController {
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
+    const isEnglish = req.query.language === 'en-US';
     const steps = [
-      { message: '正在分析学习目标...', percent: 20 },
-      { message: '正在规划技能节点...', percent: 45 },
-      { message: '正在构建依赖关系...', percent: 70 },
-      { message: '即将完成...', percent: 90 },
+      { message: isEnglish ? 'Analyzing learning goal...' : '正在分析学习目标...', percent: 20 },
+      { message: isEnglish ? 'Planning skill nodes...' : '正在规划技能节点...', percent: 45 },
+      { message: isEnglish ? 'Building dependencies...' : '正在构建依赖关系...', percent: 70 },
+      { message: isEnglish ? 'Finishing up...' : '正在收尾...', percent: 90 },
     ];
     let stepIndex = 0;
 
@@ -111,7 +114,7 @@ export class SkillTreesController {
     };
 
     const timeout = setTimeout(() => {
-      sendEvent('error', { message: '生成超时，请重试' });
+      sendEvent('error', { message: isEnglish ? 'Generation timed out' : '生成超时' });
       res.end();
     }, 60000);
 
@@ -121,7 +124,7 @@ export class SkillTreesController {
         if (!doc) {
           clearInterval(interval);
           clearTimeout(timeout);
-          sendEvent('error', { message: '技能树不存在' });
+          sendEvent('error', { message: isEnglish ? 'Skill tree not found' : '技能树不存在' });
           res.end();
           return;
         }
@@ -137,19 +140,18 @@ export class SkillTreesController {
         if (doc.status === 'failed') {
           clearInterval(interval);
           clearTimeout(timeout);
-          sendEvent('error', { message: doc.errorMessage ?? '生成失败，请重试' });
+          sendEvent('error', { message: doc.errorMessage ?? (isEnglish ? 'Generation failed' : '生成失败') });
           res.end();
           return;
         }
 
-        // still generating — send next progress step
-        const step = steps[stepIndex % steps.length];
+        const step = steps[Math.min(stepIndex, steps.length - 1)];
         sendEvent('progress', { step: stepIndex + 1, message: step.message, percent: step.percent });
         stepIndex++;
       } catch {
         clearInterval(interval);
         clearTimeout(timeout);
-        sendEvent('error', { message: '服务异常，请重试' });
+        sendEvent('error', { message: isEnglish ? 'Internal server error' : '服务器内部错误' });
         res.end();
       }
     }, 1500);

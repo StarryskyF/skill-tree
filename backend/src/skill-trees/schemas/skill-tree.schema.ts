@@ -25,6 +25,7 @@ export class SkillTree {
   @Prop({ required: true }) userId: string;
   @Prop({ required: true }) goal: string;
   @Prop({ required: true }) currentLevel: string;
+  @Prop({ enum: ['zh-CN', 'en-US'], default: 'zh-CN' }) language: 'zh-CN' | 'en-US';
   @Prop({ default: '' }) title: string;
   @Prop({ enum: ['generating', 'ready', 'failed'], default: 'generating' })
   status: 'generating' | 'ready' | 'failed';

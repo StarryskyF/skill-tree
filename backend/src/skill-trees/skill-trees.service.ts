@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SkillNode, SkillTree, SkillTreeDocument } from './schemas/skill-tree.schema';
-import { CreateSkillTreeDto } from './dto/create-skill-tree.dto';
+import { CreateSkillTreeDto, type AppLanguage } from './dto/create-skill-tree.dto';
 import { AiService, QuizQuestion } from '../ai/ai.service';
 import { CompleteNodeDto } from './dto/complete-node.dto';
 import { RagService } from '../rag/rag.service';
@@ -27,6 +27,7 @@ export class SkillTreesService {
       userId,
       goal: dto.goal,
       currentLevel: dto.currentLevel,
+      language: dto.language ?? 'zh-CN',
       status: 'generating',
     });
 
@@ -50,19 +51,28 @@ export class SkillTreesService {
       }
     }
 
-    setImmediate(() => this.runGeneration(skillTree.id as string, userId, dto.goal, dto.currentLevel, hasPdf));
+    setImmediate(() =>
+      this.runGeneration(skillTree.id as string, userId, dto.goal, dto.currentLevel, hasPdf, dto.language ?? 'zh-CN'),
+    );
 
     return skillTree;
   }
 
-  private async runGeneration(id: string, userId: string, goal: string, currentLevel: string, hasPdf: boolean) {
+  private async runGeneration(
+    id: string,
+    userId: string,
+    goal: string,
+    currentLevel: string,
+    hasPdf: boolean,
+    language: AppLanguage,
+  ) {
     try {
       let documentContext: string | undefined;
       if (hasPdf) {
         const chunks = await this.ragService.searchDocuments(userId, id, goal, 5);
         if (chunks.length > 0) documentContext = chunks.join('\n\n');
       }
-      const result = await this.aiService.generateSkillTree(goal, currentLevel, documentContext);
+      const result = await this.aiService.generateSkillTree(goal, currentLevel, documentContext, language);
       await this.skillTreeModel.findByIdAndUpdate(id, {
         status: 'ready',
         title: result.title,
@@ -126,6 +136,7 @@ export class SkillTreesService {
     userId: string,
     treeId: string,
     nodeId: string,
+    language?: AppLanguage,
   ): Promise<QuizQuestion[]> {
     const tree = await this.findOne(userId, treeId);
     const node = tree.nodes.find((n) => n.id === nodeId);
@@ -135,7 +146,7 @@ export class SkillTreesService {
     if (statuses[nodeId] === 'locked') throw new ForbiddenException('该节点尚未解锁');
     if (statuses[nodeId] === 'completed') throw new BadRequestException('该节点已完成');
 
-    return this.aiService.generateQuiz(node.title, node.description, tree.goal);
+    return this.aiService.generateQuiz(node.title, node.description, tree.goal, language ?? tree.language ?? 'zh-CN');
   }
 
   async completeNode(

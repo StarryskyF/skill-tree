@@ -4,11 +4,14 @@ import { useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { getSkillTrees, deleteSkillTree } from '../../api/skill-trees'
 import type { SkillTree } from '../../api/skill-trees'
+import { useI18n } from '../../i18n'
 import ThemeToggle from '../../components/ThemeToggle.vue'
+import LanguageToggle from '../../components/LanguageToggle.vue'
 import SkillTreeCard from './components/SkillTreeCard.vue'
 import CreateSkillTreeModal from './components/CreateSkillTreeModal.vue'
 
 const router = useRouter()
+const { t } = useI18n()
 const skillTrees = ref<SkillTree[]>([])
 const loading = ref(true)
 const showCreateModal = ref(false)
@@ -25,16 +28,16 @@ async function loadSkillTrees() {
 
 async function handleDelete(id: string) {
   try {
-    await ElMessageBox.confirm('确定要删除这棵技能树吗？此操作不可恢复。', '删除确认', {
-      confirmButtonText: '确定删除',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('trees.deleteMessage'), t('trees.deleteTitle'), {
+      confirmButtonText: t('trees.deleteConfirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning',
     })
     await deleteSkillTree(id)
-    ElMessage.success('已删除')
-    skillTrees.value = skillTrees.value.filter((t) => t._id !== id)
+    ElMessage.success(t('trees.deleteSuccess'))
+    skillTrees.value = skillTrees.value.filter((tree) => tree._id !== id)
   } catch {
-    // user cancelled or request failed
+    // User cancelled or request failed.
   }
 }
 
@@ -52,39 +55,38 @@ onMounted(loadSkillTrees)
 
 <template>
   <div class="min-h-screen" style="background-color: var(--bg-page);">
-    <!-- Navbar -->
     <nav
       class="sticky top-0 z-10 flex items-center justify-between px-6 py-3 backdrop-blur-sm"
       style="background-color: var(--bg-card); border-bottom: 1px solid var(--border-color);"
     >
       <div class="flex items-center gap-3">
         <div
-          class="w-8 h-8 rounded-lg flex items-center justify-center text-base cursor-pointer"
+          class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black text-white cursor-pointer"
           style="background: linear-gradient(135deg, #7c3aed, #06b6d4);"
           @click="router.push('/')"
         >
-          🌳
+          ST
         </div>
-        <span class="font-bold text-base" style="color: var(--text-primary);">Skill Tree</span>
+        <span class="font-bold text-base" style="color: var(--text-primary);">{{ t('common.appName') }}</span>
       </div>
       <div class="flex items-center gap-3">
+        <LanguageToggle />
         <ThemeToggle />
         <button
           @click="router.push('/')"
           class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:opacity-80 cursor-pointer"
           style="background-color: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border-color);"
         >
-          ← 返回首页
+          {{ t('common.backHome') }}
         </button>
       </div>
     </nav>
 
     <main class="max-w-4xl mx-auto px-6 py-10">
-      <!-- Page header -->
       <div class="flex items-center justify-between mb-8">
         <div>
-          <h1 class="text-2xl font-bold" style="color: var(--text-primary);">我的技能树</h1>
-          <p class="text-sm mt-1" style="color: var(--text-muted);">管理你的所有学习目标</p>
+          <h1 class="text-2xl font-bold" style="color: var(--text-primary);">{{ t('trees.title') }}</h1>
+          <p class="text-sm mt-1" style="color: var(--text-muted);">{{ t('trees.subtitle') }}</p>
         </div>
         <button
           @click="showCreateModal = true"
@@ -92,11 +94,10 @@ onMounted(loadSkillTrees)
           style="background: linear-gradient(135deg, #7c3aed, #06b6d4); color: white;"
         >
           <span>+</span>
-          <span>新建目标</span>
+          <span>{{ t('trees.create') }}</span>
         </button>
       </div>
 
-      <!-- Loading state -->
       <div v-if="loading" class="grid md:grid-cols-2 gap-4">
         <div
           v-for="i in 4"
@@ -106,29 +107,24 @@ onMounted(loadSkillTrees)
         />
       </div>
 
-      <!-- Empty state -->
-      <div
-        v-else-if="skillTrees.length === 0"
-        class="flex flex-col items-center justify-center py-24 gap-4"
-      >
+      <div v-else-if="skillTrees.length === 0" class="flex flex-col items-center justify-center py-24 gap-4">
         <div
-          class="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl"
-          style="background-color: var(--bg-card); border: 1px solid var(--border-color);"
+          class="w-20 h-20 rounded-2xl flex items-center justify-center text-lg font-black"
+          style="background-color: var(--bg-card); border: 1px solid var(--border-color); color: #8b5cf6;"
         >
-          🌱
+          ST
         </div>
-        <p class="text-base font-medium" style="color: var(--text-primary);">还没有技能树</p>
-        <p class="text-sm" style="color: var(--text-muted);">告诉 AI 你想学什么，自动生成专属学习路径</p>
+        <p class="text-base font-medium" style="color: var(--text-primary);">{{ t('trees.emptyTitle') }}</p>
+        <p class="text-sm" style="color: var(--text-muted);">{{ t('trees.emptyDesc') }}</p>
         <button
           @click="showCreateModal = true"
           class="mt-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 hover:opacity-90 cursor-pointer"
           style="background: linear-gradient(135deg, #7c3aed, #06b6d4); color: white;"
         >
-          创建第一棵技能树
+          {{ t('trees.emptyAction') }}
         </button>
       </div>
 
-      <!-- Grid -->
       <div v-else class="grid md:grid-cols-2 gap-4">
         <SkillTreeCard
           v-for="tree in skillTrees"

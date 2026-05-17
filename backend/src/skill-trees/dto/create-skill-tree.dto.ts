@@ -1,13 +1,20 @@
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+
+export type AppLanguage = 'zh-CN' | 'en-US';
 
 export class CreateSkillTreeDto {
   @IsString()
-  @IsNotEmpty({ message: '学习目标不能为空' })
+  @IsNotEmpty({ message: 'Learning goal is required' })
   @MaxLength(200)
   goal: string;
 
   @IsString()
-  @IsNotEmpty({ message: '当前水平不能为空' })
+  @IsNotEmpty({ message: 'Current level is required' })
   @MaxLength(200)
   currentLevel: string;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(['zh-CN', 'en-US'])
+  language?: AppLanguage;
 }

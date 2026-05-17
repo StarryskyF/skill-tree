@@ -19,4 +19,8 @@ import { useThemeStore } from './stores/theme'
 const themeStore = useThemeStore()
 themeStore.init()
 
+import { useLocaleStore } from './stores/locale'
+const localeStore = useLocaleStore()
+localeStore.init()
+
 app.mount('#app')

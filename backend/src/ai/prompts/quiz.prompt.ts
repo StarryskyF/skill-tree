@@ -1,14 +1,56 @@
-export function buildQuizPrompt(title: string, description: string, treeGoal: string): string {
-  return `你是一个专业的学习评估专家。请为以下技能节点生成3道单选测试题，用于检验学习者是否掌握了该知识点。
+import type { AppLanguage } from '../../skill-trees/dto/create-skill-tree.dto';
 
-学习目标（技能树主题）：${treeGoal}
-技能节点名称：${title}
-技能节点描述：${description}
+export function buildQuizPrompt(
+  title: string,
+  description: string,
+  treeGoal: string,
+  language: AppLanguage = 'zh-CN',
+): string {
+  return language === 'en-US'
+    ? buildEnglishQuizPrompt(title, description, treeGoal)
+    : buildChineseQuizPrompt(title, description, treeGoal);
+}
 
-请返回一个 JSON 数组，包含恰好3个题目对象，每个对象包含：
-- question: 题目描述（清晰、具体，考察该节点的核心概念）
-- options: 恰好4个选项的字符串数组（有一个明确正确答案，其余为合理干扰项）
-- correctIndex: 正确答案的索引（0到3之间的整数）
+function buildChineseQuizPrompt(title: string, description: string, treeGoal: string): string {
+  return `你是一个专业的学习测验出题助手。请为下面的技能节点生成 3 道单选题，用来判断用户是否掌握该节点。
 
-只返回 JSON 数组，不要有任何 markdown 代码块或额外说明。`;
+学习目标：${treeGoal}
+技能节点：${title}
+节点描述：${description}
+
+请只返回 JSON 数组，数组长度必须为 3。每道题包含：
+- question: 题干
+- options: 4 个选项
+- correctIndex: 正确答案下标，0 到 3
+
+要求：
+1. 只返回 JSON，不要 markdown 代码块或额外说明
+2. 所有题干和选项必须使用中文
+3. 题目应考察理解和应用，不要只问概念定义
+4. 难度要适合该技能节点
+
+示例：
+[{"question":"...","options":["...","...","...","..."],"correctIndex":0}]`;
+}
+
+function buildEnglishQuizPrompt(title: string, description: string, treeGoal: string): string {
+  return `You are an expert learning-assessment writer. Generate 3 single-choice questions for the skill node below to check whether the learner has mastered it.
+
+Learning goal: ${treeGoal}
+Skill node: ${title}
+Node description: ${description}
+
+Return only a JSON array with exactly 3 items. Each question must include:
+- question: The question text
+- options: 4 answer options
+- correctIndex: The correct answer index from 0 to 3
+
+Requirements:
+1. Return JSON only. Do not include markdown code fences or extra explanation
+2. All questions and options must be in English
+3. Test understanding and application, not only definitions
+4. Keep difficulty appropriate for the skill node
+
+Example:
+[{"question":"...","options":["...","...","...","..."],"correctIndex":0}]`;
 }
