@@ -191,6 +191,13 @@ const enUS = {
     allDone: 'All nodes completed!',
     askMessageWithRecommended: 'Based on my learning-path analysis (similarity score {score}/100), I should learn next: {recommended}. Please analyze my current progress and suggest the next steps.',
     askMessage: 'My learning-path similarity score is {score}/100. Please analyze my current learning state.',
+    reasons: {
+      retryAfterFailures: 'This node has repeated quiz failures; review mistakes before trying again',
+      pastMistakes: 'Past quiz mistakes suggest this is a useful weak spot to revisit',
+      unlocked: 'This node is unlocked and is a suitable next learning target',
+      weakPrerequisites: 'Related prerequisites have mistake history; review the prerequisite concepts first',
+      prerequisitesComplete: 'All prerequisites are complete, so the learning order is coherent',
+    },
   },
   badge: {
     unlocked: 'Badge unlocked',

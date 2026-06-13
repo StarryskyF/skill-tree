@@ -23,6 +23,7 @@ describe('SkillTreesService generation validation', () => {
   const ragService = {
     searchDocuments: jest.fn(),
     searchLearningMemory: jest.fn(),
+    storeQuizMistakes: jest.fn().mockResolvedValue(undefined),
   };
   const usersService = {};
   const evaluationService = {
@@ -105,5 +106,39 @@ describe('SkillTreesService generation validation', () => {
         }),
       }),
     );
+  });
+
+  it('records quiz performance when a quiz fails', async () => {
+    const serviceAny = service as any;
+    serviceAny.findOne = jest.fn().mockResolvedValue({
+      completedNodes: [],
+      quizPerformance: [],
+      nodes: [
+        { id: 'node_1', title: 'Basics', description: 'Learn basics', level: 0, prerequisites: [], exp: 10 },
+      ],
+    });
+
+    const result = await service.completeNode('user-1', 'tree-1', 'node_1', {
+      quizAnswers: [1, 1, 1],
+      questions: [
+        { question: 'q1', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+        { question: 'q2', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+        { question: 'q3', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+      ],
+    });
+
+    expect(result.passed).toBe(false);
+    expect(skillTreeModel.findByIdAndUpdate).toHaveBeenCalledWith('tree-1', {
+      quizPerformance: [
+        expect.objectContaining({
+          nodeId: 'node_1',
+          attempts: 1,
+          failCount: 1,
+          passCount: 0,
+          consecutiveFailures: 1,
+          lastScore: 0,
+        }),
+      ],
+    });
   });
 });

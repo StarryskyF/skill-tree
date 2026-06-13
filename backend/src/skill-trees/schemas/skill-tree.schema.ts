@@ -20,6 +20,19 @@ export class SkillEdge {
   @Prop({ required: true }) target: string;
 }
 
+@Schema({ _id: false })
+export class NodeQuizPerformance {
+  @Prop({ required: true }) nodeId: string;
+  @Prop({ default: 0 }) attempts: number;
+  @Prop({ default: 0 }) passCount: number;
+  @Prop({ default: 0 }) failCount: number;
+  @Prop({ default: 0 }) consecutiveFailures: number;
+  @Prop({ default: 0 }) lastScore: number;
+  @Prop() lastAttemptAt?: Date;
+  @Prop() lastPassedAt?: Date;
+  @Prop() lastFailedAt?: Date;
+}
+
 @Schema({ timestamps: true })
 export class SkillTree {
   @Prop({ required: true }) userId: string;
@@ -32,6 +45,7 @@ export class SkillTree {
   @Prop({ type: [Object], default: [] }) nodes: SkillNode[];
   @Prop({ type: [Object], default: [] }) edges: SkillEdge[];
   @Prop({ type: [String], default: [] }) completedNodes: string[];
+  @Prop({ type: [Object], default: [] }) quizPerformance: NodeQuizPerformance[];
   @Prop() errorMessage?: string;
 }
 

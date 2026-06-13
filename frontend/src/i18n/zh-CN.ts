@@ -191,6 +191,13 @@ const zhCN = {
     allDone: '所有节点已完成！',
     askMessageWithRecommended: '根据我的学习路径分析（相似度评分 {score}/100），建议我接下来学习：{recommended}。请帮我分析一下当前学习状态和下一步建议。',
     askMessage: '我的学习路径相似度评分是 {score}/100，请帮我分析当前学习状态。',
+    reasons: {
+      retryAfterFailures: '连续测验未通过，建议先针对错题补救后再尝试',
+      pastMistakes: '此前测验出现过错误，适合优先复习薄弱点',
+      unlocked: '该节点已解锁，适合作为下一步学习目标',
+      weakPrerequisites: '相关前置节点存在错题记录，学习时建议先回顾前置概念',
+      prerequisitesComplete: '所有前置依赖已完成，当前学习顺序是连贯的',
+    },
   },
   badge: {
     unlocked: '解锁成就',

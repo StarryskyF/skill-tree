@@ -60,6 +60,12 @@ export interface PathAnalysisResult {
   totalCount: number
   deviations: PathDeviation[]
   nextRecommended: string[]
+  recommendationDetails: Array<{
+    nodeId: string
+    nodeTitle: string
+    reasons: string[]
+    priority: number
+  }>
   expertPath: string[]
   userPath: string[]
 }

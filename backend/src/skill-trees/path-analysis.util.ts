@@ -10,6 +10,7 @@ export interface PathAnalysisResult {
   totalCount: number;
   deviations: PathDeviation[];
   nextRecommended: string[];
+  recommendationDetails: RecommendationDetail[];
   expertPath: string[];
   userPath: string[];
 }
@@ -19,6 +20,22 @@ interface NodeMeta {
   title: string;
   level: number;
   prerequisites: string[];
+}
+
+export interface NodeQuizPerformanceMeta {
+  nodeId: string;
+  attempts?: number;
+  passCount?: number;
+  failCount?: number;
+  consecutiveFailures?: number;
+  lastScore?: number;
+}
+
+export interface RecommendationDetail {
+  nodeId: string;
+  nodeTitle: string;
+  reasons: string[];
+  priority: number;
 }
 
 function buildExpertPath(nodes: NodeMeta[]): string[] {
@@ -40,6 +57,7 @@ function lcs(a: string[], b: string[]): number {
 export function analyzePathSimilarity(
   nodes: NodeMeta[],
   completedNodes: string[],
+  quizPerformance: NodeQuizPerformanceMeta[] = [],
 ): PathAnalysisResult {
   const expertPath = buildExpertPath(nodes);
   const userPath = completedNodes.filter((id) => expertPath.includes(id));
@@ -73,13 +91,60 @@ export function analyzePathSimilarity(
 
   // Recommend next nodes: available (all prereqs in completedSet) and not yet completed, in expert order
   const completedSet = new Set(completedNodes);
-  const nextRecommended = expertPath
+  const performanceByNode = new Map(quizPerformance.map((item) => [item.nodeId, item]));
+  const recommendationDetails = expertPath
     .filter((id) => {
       if (completedSet.has(id)) return false;
       const node = nodes.find((n) => n.id === id);
       return node?.prerequisites.every((p) => completedSet.has(p)) ?? false;
     })
+    .map((id) => buildRecommendationDetail(id, nodes, performanceByNode, completedSet, expertIndex))
+    .sort((a, b) => b.priority - a.priority || (expertIndex.get(a.nodeId) ?? 0) - (expertIndex.get(b.nodeId) ?? 0))
     .slice(0, 3);
+  const nextRecommended = recommendationDetails.map((detail) => detail.nodeId);
 
-  return { similarityScore, completedCount, totalCount, deviations, nextRecommended, expertPath, userPath };
+  return { similarityScore, completedCount, totalCount, deviations, nextRecommended, recommendationDetails, expertPath, userPath };
+}
+
+function buildRecommendationDetail(
+  id: string,
+  nodes: NodeMeta[],
+  performanceByNode: Map<string, NodeQuizPerformanceMeta>,
+  completedSet: Set<string>,
+  expertIndex: Map<string, number>,
+): RecommendationDetail {
+  const node = nodes.find((n) => n.id === id);
+  const performance = performanceByNode.get(id);
+  const reasons: string[] = [];
+  let priority = 10;
+
+  if ((performance?.consecutiveFailures ?? 0) >= 2) {
+    priority += 100;
+    reasons.push('retryAfterFailures');
+  } else if ((performance?.failCount ?? 0) > 0) {
+    priority += 60;
+    reasons.push('pastMistakes');
+  } else {
+    reasons.push('unlocked');
+  }
+
+  const weakPrerequisites = (node?.prerequisites ?? [])
+    .map((prerequisiteId) => ({ prerequisiteId, performance: performanceByNode.get(prerequisiteId) }))
+    .filter((item) => (item.performance?.failCount ?? 0) > (item.performance?.passCount ?? 0));
+  if (weakPrerequisites.length > 0) {
+    priority += 25;
+    reasons.push('weakPrerequisites');
+  }
+
+  const prerequisitesCompleted = (node?.prerequisites ?? []).filter((prerequisite) => completedSet.has(prerequisite)).length;
+  if (prerequisitesCompleted > 0) {
+    reasons.push('prerequisitesComplete');
+  }
+
+  return {
+    nodeId: id,
+    nodeTitle: node?.title ?? id,
+    reasons,
+    priority: priority - (expertIndex.get(id) ?? 0),
+  };
 }
