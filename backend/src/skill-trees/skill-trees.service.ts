@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { SkillNode, SkillTree, SkillTreeDocument } from './schemas/skill-tree.schema';
+import { NodeQuizPerformance, SkillNode, SkillTree, SkillTreeDocument } from './schemas/skill-tree.schema';
 import { CreateSkillTreeDto, type AppLanguage } from './dto/create-skill-tree.dto';
 import { AiService, QuizQuestion } from '../ai/ai.service';
 import { CompleteNodeDto } from './dto/complete-node.dto';
@@ -275,11 +275,17 @@ export class SkillTreesService {
     }
 
     if (!passed) {
+      const quizPerformance = updateQuizPerformance(tree.quizPerformance ?? [], nodeId, score, false);
+      await this.skillTreeModel.findByIdAndUpdate(treeId, { quizPerformance });
       return { passed: false, score, newStatuses: statuses };
     }
 
     const updatedCompletedNodes = [...new Set([...(tree.completedNodes ?? []), nodeId])];
-    await this.skillTreeModel.findByIdAndUpdate(treeId, { completedNodes: updatedCompletedNodes });
+    const quizPerformance = updateQuizPerformance(tree.quizPerformance ?? [], nodeId, score, true);
+    await this.skillTreeModel.findByIdAndUpdate(treeId, {
+      completedNodes: updatedCompletedNodes,
+      quizPerformance,
+    });
     this.logger.log(`Node completed (treeId=${treeId}, nodeId=${nodeId})`);
     await this.logEvaluation({
       userId,
@@ -323,7 +329,7 @@ export class SkillTreesService {
 
   async getPathAnalysis(userId: string, treeId: string): Promise<PathAnalysisResult> {
     const tree = await this.findOne(userId, treeId);
-    return analyzePathSimilarity(tree.nodes, tree.completedNodes ?? []);
+    return analyzePathSimilarity(tree.nodes, tree.completedNodes ?? [], tree.quizPerformance ?? []);
   }
 
   private async logEvaluation(input: Parameters<EvaluationService['recordEvent']>[0]) {
@@ -333,6 +339,30 @@ export class SkillTreesService {
       this.logger.warn(`Evaluation event skipped: ${(err as Error).message}`);
     }
   }
+}
+
+function updateQuizPerformance(
+  performances: NodeQuizPerformance[],
+  nodeId: string,
+  score: number,
+  passed: boolean,
+): NodeQuizPerformance[] {
+  const now = new Date();
+  const existing = performances.find((item) => item.nodeId === nodeId);
+  const next: NodeQuizPerformance = {
+    nodeId,
+    attempts: (existing?.attempts ?? 0) + 1,
+    passCount: (existing?.passCount ?? 0) + (passed ? 1 : 0),
+    failCount: (existing?.failCount ?? 0) + (passed ? 0 : 1),
+    consecutiveFailures: passed ? 0 : (existing?.consecutiveFailures ?? 0) + 1,
+    lastScore: score,
+    lastAttemptAt: now,
+    lastPassedAt: passed ? now : existing?.lastPassedAt,
+    lastFailedAt: passed ? existing?.lastFailedAt : now,
+  };
+
+  const others = performances.filter((item) => item.nodeId !== nodeId);
+  return [...others, next];
 }
 
 function buildLearningContext(mistakes: string[], documents: string[]): string | undefined {

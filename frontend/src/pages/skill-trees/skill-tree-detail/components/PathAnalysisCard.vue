@@ -36,6 +36,10 @@ function onAskAi() {
 function onHighlight() {
   emit('highlightNodes', props.analysis.nextRecommended)
 }
+
+function reasonText(reason: string) {
+  return t(`path.reasons.${reason}`)
+}
 </script>
 
 <template>
@@ -81,6 +85,22 @@ function onHighlight() {
           {{ nodeIdToTitle[id] ?? id }}
         </span>
       </div>
+      <div v-if="analysis.recommendationDetails?.length" class="path-card__reason-list">
+        <div
+          v-for="detail in analysis.recommendationDetails"
+          :key="detail.nodeId"
+          class="path-card__reason-item"
+        >
+          <span class="path-card__reason-title">{{ nodeIdToTitle[detail.nodeId] ?? detail.nodeTitle }}</span>
+          <span
+            v-for="reason in detail.reasons"
+            :key="`${detail.nodeId}-${reason}`"
+            class="path-card__reason"
+          >
+            {{ reasonText(reason) }}
+          </span>
+        </div>
+      </div>
     </div>
 
     <div v-if="analysis.deviations.length" class="path-card__section">
@@ -117,6 +137,10 @@ function onHighlight() {
 .path-card__tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .path-card__tag { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; }
 .path-card__tag--next { background: rgba(124, 58, 237, 0.12); color: #7c3aed; border: 1px solid rgba(124, 58, 237, 0.25); }
+.path-card__reason-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.path-card__reason-item { display: flex; flex-direction: column; gap: 3px; padding: 7px 8px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); }
+.path-card__reason-title { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.path-card__reason { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
 .path-card__deviations { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 .path-card__deviation { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border-radius: 6px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); }
 .path-card__deviation-node { font-weight: 500; color: #f59e0b; font-size: 12px; }
