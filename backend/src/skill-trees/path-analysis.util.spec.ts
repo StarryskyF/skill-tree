@@ -1,4 +1,8 @@
-import { analyzePathSimilarity } from './path-analysis.util';
+import {
+  analyzePathSimilarity,
+  calculatePathRewardBonus,
+  longestCommonSubsequenceLength,
+} from './path-analysis.util';
 
 const nodes = [
   { id: 'node_1', title: 'Basics', level: 0, prerequisites: [] },
@@ -7,6 +11,10 @@ const nodes = [
 ];
 
 describe('analyzePathSimilarity adaptive recommendations', () => {
+  it('calculates LCS length for path similarity', () => {
+    expect(longestCommonSubsequenceLength(['a', 'b', 'c'], ['b', 'a', 'c'])).toBe(2);
+  });
+
   it('recommends unlocked nodes with translated reason codes', () => {
     const result = analyzePathSimilarity(nodes, ['node_1']);
 
@@ -35,5 +43,39 @@ describe('analyzePathSimilarity adaptive recommendations', () => {
 
     expect(result.nextRecommended).toEqual(['node_3']);
     expect(result.recommendationDetails[0].reasons).toContain('weakPrerequisites');
+  });
+
+  it('adds EXP bonus when the learner follows the reference path', () => {
+    const result = calculatePathRewardBonus(
+      [
+        { id: 'node_1', title: 'Basics', level: 0, prerequisites: [], exp: 10 },
+        { id: 'node_2', title: 'Components', level: 1, prerequisites: ['node_1'], exp: 20 },
+      ],
+      ['node_1'],
+      'node_2',
+    );
+
+    expect(result).toEqual({
+      baseExp: 20,
+      bonusExp: 4,
+      totalExp: 24,
+      reason: 'recommended_order',
+      similarityScoreAfter: 100,
+    });
+  });
+
+  it('does not add path bonus for out-of-order completion', () => {
+    const result = calculatePathRewardBonus(
+      [
+        { id: 'node_1', title: 'Basics', level: 0, prerequisites: [], exp: 10 },
+        { id: 'node_2', title: 'Components', level: 1, prerequisites: ['node_1'], exp: 20 },
+        { id: 'node_3', title: 'Routing', level: 2, prerequisites: ['node_1'], exp: 20 },
+      ],
+      ['node_1'],
+      'node_3',
+    );
+
+    expect(result.bonusExp).toBe(0);
+    expect(result.totalExp).toBe(20);
   });
 });

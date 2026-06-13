@@ -7,7 +7,7 @@ import { AiService, QuizQuestion } from '../ai/ai.service';
 import { CompleteNodeDto } from './dto/complete-node.dto';
 import { RagService } from '../rag/rag.service';
 import { UsersService } from '../users/users.service';
-import { analyzePathSimilarity, PathAnalysisResult } from './path-analysis.util';
+import { analyzePathSimilarity, calculatePathRewardBonus, PathAnalysisResult } from './path-analysis.util';
 import { EvaluationService } from '../evaluation/evaluation.service';
 import { validateAndNormalizeSkillTree } from './skill-tree-validation.util';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -228,6 +228,8 @@ export class SkillTreesService {
     score: number;
     newStatuses: Record<string, 'locked' | 'available' | 'completed'>;
     expGained?: number;
+    baseExp?: number;
+    pathBonusExp?: number;
     newExp?: number;
     newLevel?: number;
     leveledUp?: boolean;
@@ -298,13 +300,18 @@ export class SkillTreesService {
 
     const newStatuses = this.computeNodeStatuses(tree.nodes, updatedCompletedNodes);
 
-    // 检查是否完成整棵树
-    const treeComplete = tree.nodes.every((n) => updatedCompletedNodes.includes(n.id));
-    const treeBadges = treeComplete
-      ? [{ id: `tree_complete_${treeId}`, name: `🎓「${tree.title}」完成者` }]
-      : [];
+    const pathReward = calculatePathRewardBonus(tree.nodes, tree.completedNodes ?? [], nodeId);
+    const afterPath = analyzePathSimilarity(tree.nodes, updatedCompletedNodes, quizPerformance);
 
-    const expGained = node.exp ?? 10;
+    // 检查是否完成整棵树，并把明显的学习成就转成徽章反馈。
+    const treeComplete = tree.nodes.every((n) => updatedCompletedNodes.includes(n.id));
+    const treeBadges = [
+      ...(treeComplete ? [{ id: `tree_complete_${treeId}`, name: `完成整棵树：${tree.title}` }] : []),
+      ...(afterPath.similarityScore >= 80 ? [{ id: `high_similarity_path_${treeId}`, name: '高相似度路径' }] : []),
+      ...(score === dto.questions.length ? [{ id: 'perfect_quiz', name: '测验全对' }] : []),
+    ];
+
+    const expGained = pathReward.totalExp;
     const { newExp, newLevel, leveledUp, newBadges } = await this.usersService.addExp(userId, expGained, treeBadges);
     await this.logEvaluation({
       userId,
@@ -312,7 +319,15 @@ export class SkillTreesService {
       nodeId,
       type: 'exp_gained',
       exp: expGained,
-      metadata: { newExp, newLevel, leveledUp },
+      metadata: {
+        baseExp: pathReward.baseExp,
+        pathBonusExp: pathReward.bonusExp,
+        pathBonusReason: pathReward.reason,
+        similarityScoreAfter: pathReward.similarityScoreAfter,
+        newExp,
+        newLevel,
+        leveledUp,
+      },
     });
     for (const badge of newBadges) {
       await this.logEvaluation({
@@ -324,7 +339,18 @@ export class SkillTreesService {
       });
     }
 
-    return { passed: true, score, newStatuses, expGained, newExp, newLevel, leveledUp, newBadges };
+    return {
+      passed: true,
+      score,
+      newStatuses,
+      expGained,
+      baseExp: pathReward.baseExp,
+      pathBonusExp: pathReward.bonusExp,
+      newExp,
+      newLevel,
+      leveledUp,
+      newBadges,
+    };
   }
 
   async getPathAnalysis(userId: string, treeId: string): Promise<PathAnalysisResult> {

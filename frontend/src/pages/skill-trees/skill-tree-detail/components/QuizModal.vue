@@ -140,6 +140,9 @@ function retry() {
           <div v-if="completeResult?.expGained" class="quiz-exp-gain">
             <span class="quiz-exp-float">+{{ completeResult.expGained }} EXP</span>
           </div>
+          <p v-if="completeResult?.pathBonusExp" class="quiz-bonus">
+            {{ t('quiz.pathBonus', { bonus: completeResult.pathBonusExp }) }}
+          </p>
 
           <div v-if="completeResult?.newExp !== undefined" class="quiz-exp-bar-wrap">
             <div class="quiz-exp-bar-header">
@@ -213,6 +216,7 @@ function retry() {
 .quiz-result-msg, .quiz-result-sub { font-size: 13px; text-align: center; margin: 0; color: var(--text-secondary); }
 .quiz-exp-gain { position: relative; height: 32px; display: flex; justify-content: center; }
 .quiz-exp-float { font-size: 20px; font-weight: 800; color: #fbbf24; animation: exp-float 1.2s ease-out both; display: inline-block; }
+.quiz-bonus { margin: -8px 0 0; font-size: 12px; font-weight: 700; color: #f59e0b; }
 @keyframes exp-float { 0% { transform: translateY(0); opacity: 1; } 60% { transform: translateY(-20px); opacity: 1; } 100% { transform: translateY(-28px); opacity: 0; } }
 .quiz-exp-bar-wrap { width: 100%; display: flex; flex-direction: column; gap: 5px; }
 .quiz-exp-bar-header { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); font-weight: 600; }

@@ -38,6 +38,14 @@ export interface RecommendationDetail {
   priority: number;
 }
 
+export interface PathRewardBonus {
+  baseExp: number;
+  bonusExp: number;
+  totalExp: number;
+  reason?: 'recommended_order';
+  similarityScoreAfter: number;
+}
+
 function buildExpertPath(nodes: NodeMeta[]): string[] {
   return [...nodes].sort((a, b) => a.level - b.level).map((n) => n.id);
 }
@@ -52,6 +60,34 @@ function lcs(a: string[], b: string[]): number {
     }
   }
   return dp[m][n];
+}
+
+export function longestCommonSubsequenceLength(a: string[], b: string[]): number {
+  return lcs(a, b);
+}
+
+export function calculatePathRewardBonus(
+  nodes: Array<NodeMeta & { exp?: number }>,
+  completedNodes: string[],
+  nodeId: string,
+): PathRewardBonus {
+  const node = nodes.find((item) => item.id === nodeId);
+  const baseExp = node?.exp ?? 10;
+  const before = analyzePathSimilarity(nodes, completedNodes);
+  const afterCompleted = [...new Set([...completedNodes, nodeId])];
+  const after = analyzePathSimilarity(nodes, afterCompleted);
+  const completedSet = new Set(completedNodes);
+  const nextInReferencePath = before.expertPath.find((id) => !completedSet.has(id));
+  const followsReferencePath = nextInReferencePath === nodeId && after.similarityScore >= before.similarityScore;
+  const bonusExp = followsReferencePath ? Math.max(1, Math.round(baseExp * 0.2)) : 0;
+
+  return {
+    baseExp,
+    bonusExp,
+    totalExp: baseExp + bonusExp,
+    reason: bonusExp > 0 ? 'recommended_order' : undefined,
+    similarityScoreAfter: after.similarityScore,
+  };
 }
 
 export function analyzePathSimilarity(

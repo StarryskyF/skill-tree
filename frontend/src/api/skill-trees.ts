@@ -42,6 +42,8 @@ export interface CompleteNodeResult {
   score: number
   newStatuses: Record<string, NodeStatus>
   expGained?: number
+  baseExp?: number
+  pathBonusExp?: number
   newExp?: number
   newLevel?: number
   leveledUp?: boolean

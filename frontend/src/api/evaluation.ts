@@ -30,6 +30,8 @@ export interface EvaluationSummary {
   totalPossibleNodes: number
   totalEarnedExp: number
   totalAvailableExp: number
+  totalPathBonusExp: number
+  averagePathBonusExp: number
   userLevel: number
   userExp: number
   userBadgeCount: number
