@@ -131,7 +131,7 @@ function logout() {
           <p class="text-sm" style="color: var(--text-muted);">{{ t('home.manageTreesDesc') }}</p>
           <div class="mt-4 flex items-center gap-1.5" style="color: #8b5cf6;">
             <span class="text-sm font-medium">{{ t('home.enterWorkspace') }}</span>
-            <span class="text-xs group-hover:translate-x-1 transition-transform duration-200">→</span>
+            <span class="text-xs group-hover:translate-x-1 transition-transform duration-200">&gt;</span>
           </div>
         </div>
 
@@ -152,6 +152,27 @@ function logout() {
           <p class="text-sm" style="color: var(--text-muted);">{{ t('home.createTreeDesc') }}</p>
           <div class="mt-4 flex items-center gap-1.5" style="color: #06b6d4;">
             <span class="text-sm font-medium">{{ t('home.startCreate') }}</span>
+            <span class="text-xs group-hover:translate-x-1 transition-transform duration-200">→</span>
+          </div>
+        </div>
+
+        <div
+          class="rounded-xl p-6 cursor-pointer transition-all duration-200 hover:scale-[1.02] group"
+          style="background-color: var(--bg-card); border: 1px solid var(--border-color); box-shadow: var(--shadow-card);"
+          @click="router.push('/evaluation')"
+        >
+          <div class="flex items-center gap-3 mb-3">
+            <div
+              class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black"
+              style="background: linear-gradient(135deg, rgba(37,99,235,0.13), rgba(34,197,94,0.22)); color: #2563eb;"
+            >
+              EV
+            </div>
+            <h3 class="font-semibold" style="color: var(--text-primary);">{{ t('evaluation.homeCardTitle') }}</h3>
+          </div>
+          <p class="text-sm" style="color: var(--text-muted);">{{ t('evaluation.homeCardDesc') }}</p>
+          <div class="mt-4 flex items-center gap-1.5" style="color: #2563eb;">
+            <span class="text-sm font-medium">{{ t('evaluation.homeCardAction') }}</span>
             <span class="text-xs group-hover:translate-x-1 transition-transform duration-200">→</span>
           </div>
         </div>

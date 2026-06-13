@@ -11,6 +11,7 @@ import { SkillTree, SkillTreeDocument } from '../skill-trees/schemas/skill-tree.
 import { RagService } from '../rag/rag.service';
 import { analyzePathSimilarity } from '../skill-trees/path-analysis.util';
 import type { AppLanguage } from '../skill-trees/dto/create-skill-tree.dto';
+import { EvaluationService } from '../evaluation/evaluation.service';
 
 @Injectable()
 export class ChatService {
@@ -21,6 +22,7 @@ export class ChatService {
     @InjectModel(SkillTree.name) private skillTreeModel: Model<SkillTreeDocument>,
     private readonly aiService: AiService,
     private readonly ragService: RagService,
+    private readonly evaluationService: EvaluationService,
   ) {}
 
   async createChat(userId: string, dto: CreateChatDto) {
@@ -89,6 +91,18 @@ export class ChatService {
       this.ragService.searchMistakes(userId, String(chat.skillTreeId), dto.content),
       this.ragService.searchDocuments(userId, String(chat.skillTreeId), dto.content),
     ]);
+    await this.logEvaluation({
+      userId,
+      skillTreeId: String(chat.skillTreeId),
+      nodeId: dto.nodeId,
+      type: 'rag_retrieved',
+      metadata: {
+        queryLength: dto.content.length,
+        mistakeHits: pastMistakes.length,
+        documentHits: docChunks.length,
+        totalHits: pastMistakes.length + docChunks.length,
+      },
+    });
 
     const mistakesText = pastMistakes.length > 0
       ? language === 'en-US'
@@ -161,6 +175,14 @@ export class ChatService {
       res.write(`data: ${JSON.stringify({ type: 'error', message })}\n\n`);
     } finally {
       res.end();
+    }
+  }
+
+  private async logEvaluation(input: Parameters<EvaluationService['recordEvent']>[0]) {
+    try {
+      await this.evaluationService.recordEvent(input);
+    } catch (err) {
+      this.logger.warn(`Evaluation event skipped: ${(err as Error).message}`);
     }
   }
 }

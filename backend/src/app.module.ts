@@ -8,6 +8,7 @@ import { AiModule } from './ai/ai.module';
 import { SkillTreesModule } from './skill-trees/skill-trees.module';
 import { ChatModule } from './chat/chat.module';
 import { RagModule } from './rag/rag.module';
+import { EvaluationModule } from './evaluation/evaluation.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { RagModule } from './rag/rag.module';
     SkillTreesModule,
     ChatModule,
     RagModule,
+    EvaluationModule,
   ],
 })
 export class AppModule {}

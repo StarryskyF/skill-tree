@@ -8,6 +8,7 @@ import { CompleteNodeDto } from './dto/complete-node.dto';
 import { RagService } from '../rag/rag.service';
 import { UsersService } from '../users/users.service';
 import { analyzePathSimilarity, PathAnalysisResult } from './path-analysis.util';
+import { EvaluationService } from '../evaluation/evaluation.service';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require('pdf-parse');
 
@@ -20,6 +21,7 @@ export class SkillTreesService {
     private aiService: AiService,
     private ragService: RagService,
     private usersService: UsersService,
+    private evaluationService: EvaluationService,
   ) {}
 
   async create(userId: string, dto: CreateSkillTreeDto, file?: Express.Multer.File): Promise<SkillTreeDocument> {
@@ -32,6 +34,12 @@ export class SkillTreesService {
     });
 
     this.logger.log(`Skill tree created (id=${skillTree.id}), starting async generation`);
+    await this.logEvaluation({
+      userId,
+      skillTreeId: skillTree.id as string,
+      type: 'tree_created',
+      metadata: { goal: dto.goal, currentLevel: dto.currentLevel, hasFile: Boolean(file) },
+    });
 
     let hasPdf = false;
     if (file) {
@@ -79,6 +87,12 @@ export class SkillTreesService {
         nodes: result.nodes,
         edges: result.edges,
       });
+      await this.logEvaluation({
+        userId,
+        skillTreeId: id,
+        type: 'tree_ready',
+        metadata: { nodeCount: result.nodes.length, edgeCount: result.edges.length, hasPdf },
+      });
       this.logger.log(`Skill tree generation done (id=${id})`);
     } catch (err) {
       const message = (err as Error).message;
@@ -86,6 +100,12 @@ export class SkillTreesService {
       await this.skillTreeModel.findByIdAndUpdate(id, {
         status: 'failed',
         errorMessage: message,
+      });
+      await this.logEvaluation({
+        userId,
+        skillTreeId: id,
+        type: 'tree_failed',
+        metadata: { message, hasPdf },
       });
     }
   }
@@ -187,6 +207,14 @@ export class SkillTreesService {
     }
     const score = correct;
     const passed = score >= 2;
+    await this.logEvaluation({
+      userId,
+      skillTreeId: treeId,
+      nodeId,
+      type: passed ? 'quiz_passed' : 'quiz_failed',
+      score,
+      metadata: { questionCount: dto.questions.length, mistakeCount: mistakes.length },
+    });
 
     // 无论通过与否，都存储本次错题
     if (mistakes.length > 0) {
@@ -204,6 +232,14 @@ export class SkillTreesService {
     const updatedCompletedNodes = [...new Set([...(tree.completedNodes ?? []), nodeId])];
     await this.skillTreeModel.findByIdAndUpdate(treeId, { completedNodes: updatedCompletedNodes });
     this.logger.log(`Node completed (treeId=${treeId}, nodeId=${nodeId})`);
+    await this.logEvaluation({
+      userId,
+      skillTreeId: treeId,
+      nodeId,
+      type: 'node_completed',
+      score,
+      metadata: { completedCount: updatedCompletedNodes.length, totalCount: tree.nodes.length },
+    });
 
     const newStatuses = this.computeNodeStatuses(tree.nodes, updatedCompletedNodes);
 
@@ -215,6 +251,23 @@ export class SkillTreesService {
 
     const expGained = node.exp ?? 10;
     const { newExp, newLevel, leveledUp, newBadges } = await this.usersService.addExp(userId, expGained, treeBadges);
+    await this.logEvaluation({
+      userId,
+      skillTreeId: treeId,
+      nodeId,
+      type: 'exp_gained',
+      exp: expGained,
+      metadata: { newExp, newLevel, leveledUp },
+    });
+    for (const badge of newBadges) {
+      await this.logEvaluation({
+        userId,
+        skillTreeId: treeId,
+        nodeId,
+        type: 'badge_unlocked',
+        metadata: badge,
+      });
+    }
 
     return { passed: true, score, newStatuses, expGained, newExp, newLevel, leveledUp, newBadges };
   }
@@ -222,5 +275,13 @@ export class SkillTreesService {
   async getPathAnalysis(userId: string, treeId: string): Promise<PathAnalysisResult> {
     const tree = await this.findOne(userId, treeId);
     return analyzePathSimilarity(tree.nodes, tree.completedNodes ?? []);
+  }
+
+  private async logEvaluation(input: Parameters<EvaluationService['recordEvent']>[0]) {
+    try {
+      await this.evaluationService.recordEvent(input);
+    } catch (err) {
+      this.logger.warn(`Evaluation event skipped: ${(err as Error).message}`);
+    }
   }
 }

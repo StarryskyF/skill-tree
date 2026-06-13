@@ -26,6 +26,10 @@ const router = createRouter({
       path: '/skill-trees/:id',
       component: () => import('../pages/skill-trees/skill-tree-detail/skill-tree-detail.vue'),
     },
+    {
+      path: '/evaluation',
+      component: () => import('../pages/evaluation/evaluation.vue'),
+    },
   ],
 })
 

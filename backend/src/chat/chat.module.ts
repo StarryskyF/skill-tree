@@ -6,6 +6,7 @@ import { ChatService } from './chat.service';
 import { ChatController } from './chat.controller';
 import { AiModule } from '../ai/ai.module';
 import { RagModule } from '../rag/rag.module';
+import { EvaluationModule } from '../evaluation/evaluation.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { RagModule } from '../rag/rag.module';
     ]),
     AiModule,
     RagModule,
+    EvaluationModule,
   ],
   providers: [ChatService],
   controllers: [ChatController],

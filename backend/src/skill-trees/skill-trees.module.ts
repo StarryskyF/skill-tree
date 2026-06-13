@@ -6,6 +6,7 @@ import { SkillTree, SkillTreeSchema } from './schemas/skill-tree.schema';
 import { AiModule } from '../ai/ai.module';
 import { RagModule } from '../rag/rag.module';
 import { UsersModule } from '../users/users.module';
+import { EvaluationModule } from '../evaluation/evaluation.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { UsersModule } from '../users/users.module';
     AiModule,
     RagModule,
     UsersModule,
+    EvaluationModule,
   ],
   controllers: [SkillTreesController],
   providers: [SkillTreesService],
