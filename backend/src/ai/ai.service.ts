@@ -100,8 +100,9 @@ export class AiService {
     description: string,
     treeGoal: string,
     language: AppLanguage = 'zh-CN',
+    learningContext?: string,
   ): Promise<QuizQuestion[]> {
-    const prompt = buildQuizPrompt(title, description, treeGoal, language);
+    const prompt = buildQuizPrompt(title, description, treeGoal, language, learningContext);
     const maxRetries = 3;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {

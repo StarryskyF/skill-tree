@@ -178,6 +178,7 @@ const zhCN = {
     send: '发送',
     replyFailed: 'AI 回复失败，请重试。',
     requestFailed: '请求失败',
+    ragContext: '本次回答参考了 {documents} 条资料片段和 {mistakes} 条历史错题',
   },
   path: {
     title: '学习路径分析',

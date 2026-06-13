@@ -19,6 +19,7 @@ const currentChat = ref<Chat | null>(null)
 const inputText = ref('')
 const isStreaming = ref(false)
 const streamingContent = ref('')
+const streamingRagContext = ref<{ mistakeHits: number; documentHits: number; totalHits: number } | null>(null)
 const showHistory = ref(false)
 const messagesEndRef = ref<HTMLElement | null>(null)
 
@@ -72,12 +73,21 @@ async function sendMessage() {
 
   isStreaming.value = true
   streamingContent.value = ''
+  streamingRagContext.value = null
   await scrollToBottom()
 
   try {
     const gen = streamMessage(currentChat.value._id, content, props.focusedNodeId ?? undefined, locale.value)
-    for await (const chunk of gen) {
-      streamingContent.value += chunk
+    for await (const event of gen) {
+      if (event.type === 'rag_context') {
+        streamingRagContext.value = {
+          mistakeHits: event.mistakeHits,
+          documentHits: event.documentHits,
+          totalHits: event.totalHits,
+        }
+      } else {
+        streamingContent.value += event.content
+      }
       await scrollToBottom()
     }
     currentChat.value.messages.push({
@@ -94,8 +104,10 @@ async function sendMessage() {
       createdAt: new Date().toISOString(),
     })
     streamingContent.value = ''
+    streamingRagContext.value = null
   } finally {
     isStreaming.value = false
+    streamingRagContext.value = null
     await scrollToBottom()
   }
 }
@@ -163,7 +175,12 @@ onMounted(loadOrCreateChat)
           <div class="chat-bubble">{{ msg.content }}</div>
         </div>
         <div v-if="isStreaming" class="chat-message chat-message--assistant">
-          <div class="chat-bubble">{{ streamingContent }}<span class="chat-cursor"></span></div>
+          <div class="chat-bubble">
+            <div v-if="streamingRagContext?.totalHits" class="chat-rag-hint">
+              {{ t('chat.ragContext', { documents: streamingRagContext.documentHits, mistakes: streamingRagContext.mistakeHits }) }}
+            </div>
+            {{ streamingContent }}<span class="chat-cursor"></span>
+          </div>
         </div>
       </template>
       <div ref="messagesEndRef"></div>
@@ -211,6 +228,7 @@ onMounted(loadOrCreateChat)
 .chat-bubble { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 .chat-message--user .chat-bubble { background-color: #7c3aed; color: #fff; border-bottom-right-radius: 4px; }
 .chat-message--assistant .chat-bubble { background-color: var(--bg-input); color: var(--text-primary); border-bottom-left-radius: 4px; }
+.chat-rag-hint { margin-bottom: 6px; padding: 5px 7px; border-radius: 7px; border: 1px solid rgba(124, 58, 237, 0.25); color: #7c3aed; background: rgba(124, 58, 237, 0.08); font-size: 11px; line-height: 1.4; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 .chat-cursor { display: inline-block; width: 2px; height: 14px; background-color: currentColor; margin-left: 2px; vertical-align: middle; animation: blink 0.8s step-end infinite; }
 .chat-input-area { flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border-color); }

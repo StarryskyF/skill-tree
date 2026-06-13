@@ -178,6 +178,7 @@ const enUS = {
     send: 'Send',
     replyFailed: 'AI reply failed. Please try again.',
     requestFailed: 'Request failed',
+    ragContext: 'Using {documents} reference snippet(s) and {mistakes} past mistake(s)',
   },
   path: {
     title: 'Learning path analysis',

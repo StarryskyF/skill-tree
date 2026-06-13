@@ -87,22 +87,36 @@ export class ChatService {
         : `\n当前讨论的节点：${focusedNode.title}\n节点描述：${focusedNode.description}`
       : '';
 
-    const [pastMistakes, docChunks] = await Promise.all([
-      this.ragService.searchMistakes(userId, String(chat.skillTreeId), dto.content),
-      this.ragService.searchDocuments(userId, String(chat.skillTreeId), dto.content),
-    ]);
+    const memory = await this.ragService.searchLearningMemory({
+      userId,
+      skillTreeId: String(chat.skillTreeId),
+      query: dto.content,
+    });
+    const pastMistakes = memory.mistakes.map((item) => item.content);
+    const docChunks = memory.documents.map((item) => item.content);
     await this.logEvaluation({
       userId,
       skillTreeId: String(chat.skillTreeId),
       nodeId: dto.nodeId,
       type: 'rag_retrieved',
       metadata: {
+        interaction: 'chat',
         queryLength: dto.content.length,
         mistakeHits: pastMistakes.length,
         documentHits: docChunks.length,
-        totalHits: pastMistakes.length + docChunks.length,
+        totalHits: memory.totalHits,
+        sourceTypes: [
+          ...(pastMistakes.length > 0 ? ['mistake'] : []),
+          ...(docChunks.length > 0 ? ['document'] : []),
+        ],
       },
     });
+    res.write(`data: ${JSON.stringify({
+      type: 'rag_context',
+      mistakeHits: pastMistakes.length,
+      documentHits: docChunks.length,
+      totalHits: memory.totalHits,
+    })}\n\n`);
 
     const mistakesText = pastMistakes.length > 0
       ? language === 'en-US'
