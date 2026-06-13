@@ -17,11 +17,18 @@ function calcLevel(exp: number): number {
 
 const LEVEL_NAMES = ['', '入门者', '学习者', '进阶者', '熟练者', '专家'];
 
-const MILESTONE_BADGES: Array<{ id: string; name: string; check: (count: number, level: number) => boolean }> = [
-  { id: 'first_node', name: '初出茅庐', check: (count) => count >= 1 },
-  { id: 'ten_nodes', name: '势如破竹', check: (count) => count >= 10 },
-  { id: 'thirty_nodes', name: '知识猎人', check: (count) => count >= 30 },
-  { id: 'level_3', name: '升级达人', check: (_, level) => level >= 3 },
+interface BadgeCheckContext {
+  completedCount: number;
+  level: number;
+  streakDays: number;
+}
+
+const MILESTONE_BADGES: Array<{ id: string; name: string; check: (context: BadgeCheckContext) => boolean }> = [
+  { id: 'first_node', name: '初次点亮', check: ({ completedCount }) => completedCount >= 1 },
+  { id: 'ten_nodes', name: '十步成径', check: ({ completedCount }) => completedCount >= 10 },
+  { id: 'thirty_nodes', name: '知识猎手', check: ({ completedCount }) => completedCount >= 30 },
+  { id: 'level_3', name: '升级达人', check: ({ level }) => level >= 3 },
+  { id: 'streak_3', name: '连续学习者', check: ({ streakDays }) => streakDays >= 3 },
 ];
 
 export interface PublicUser {
@@ -109,20 +116,23 @@ export class UsersService {
     const newLevel = calcLevel(newExp);
     const leveledUp = newLevel > oldLevel;
 
-    const existingBadges = new Set(user.badges ?? []);
-    const earnedMilestones = MILESTONE_BADGES
-      .filter((badge) => !existingBadges.has(badge.id) && badge.check(newTotalCompleted, newLevel))
-      .map((badge) => ({ id: badge.id, name: badge.name }));
-
-    const allNewBadges = [...earnedMilestones, ...extraBadges.filter((badge) => !existingBadges.has(badge.id))];
-    const newBadgeIds = allNewBadges.map((badge) => badge.id);
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const last = user.lastActiveDate ? new Date(user.lastActiveDate) : null;
     if (last) last.setHours(0, 0, 0, 0);
     const diffDays = last ? Math.round((today.getTime() - last.getTime()) / 86400000) : null;
     const streakDays = diffDays === 1 ? (user.streakDays ?? 0) + 1 : diffDays === 0 ? (user.streakDays ?? 1) : 1;
+
+    const existingBadges = new Set(user.badges ?? []);
+    const earnedMilestones = MILESTONE_BADGES
+      .filter((badge) =>
+        !existingBadges.has(badge.id) &&
+        badge.check({ completedCount: newTotalCompleted, level: newLevel, streakDays }),
+      )
+      .map((badge) => ({ id: badge.id, name: badge.name }));
+
+    const allNewBadges = [...earnedMilestones, ...extraBadges.filter((badge) => !existingBadges.has(badge.id))];
+    const newBadgeIds = allNewBadges.map((badge) => badge.id);
 
     await this.userModel.findByIdAndUpdate(userId, {
       exp: newExp,

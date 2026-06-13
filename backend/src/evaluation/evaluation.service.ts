@@ -97,6 +97,8 @@ export class EvaluationService {
     const quizAttempts = eventCounts.quiz_passed + eventCounts.quiz_failed;
     const ragRetrievals = events.filter((event) => event.type === 'rag_retrieved');
     const ragHitCount = ragRetrievals.filter((event) => Number(event.metadata?.totalHits ?? 0) > 0).length;
+    const expEvents = events.filter((event) => event.type === 'exp_gained');
+    const pathBonusExpValues = expEvents.map((event) => Number(event.metadata?.pathBonusExp ?? 0));
     const quizScores = events
       .filter((event) => event.type === 'quiz_passed' || event.type === 'quiz_failed')
       .map((event) => event.score ?? 0);
@@ -123,6 +125,8 @@ export class EvaluationService {
       totalPossibleNodes: sum(rows.map((row) => row.nodeCount)),
       totalEarnedExp: sum(rows.map((row) => row.earnedExp)),
       totalAvailableExp: sum(rows.map((row) => row.totalExp)),
+      totalPathBonusExp: sum(pathBonusExpValues),
+      averagePathBonusExp: average(pathBonusExpValues),
       userLevel: user?.level ?? 1,
       userExp: user?.exp ?? 0,
       userBadgeCount: user?.badges?.length ?? 0,

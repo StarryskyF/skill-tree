@@ -25,7 +25,9 @@ describe('SkillTreesService generation validation', () => {
     searchLearningMemory: jest.fn(),
     storeQuizMistakes: jest.fn().mockResolvedValue(undefined),
   };
-  const usersService = {};
+  const usersService = {
+    addExp: jest.fn(),
+  };
   const evaluationService = {
     recordEvent: jest.fn(),
   };
@@ -140,5 +142,63 @@ describe('SkillTreesService generation validation', () => {
         }),
       ],
     });
+  });
+
+  it('adds path bonus EXP and achievement badges when a quiz passes on the reference path', async () => {
+    const serviceAny = service as any;
+    serviceAny.findOne = jest.fn().mockResolvedValue({
+      title: 'Vue Skill Tree',
+      completedNodes: ['node_1'],
+      quizPerformance: [],
+      nodes: [
+        { id: 'node_1', title: 'Basics', description: 'Learn basics', level: 0, prerequisites: [], exp: 10 },
+        { id: 'node_2', title: 'Components', description: 'Learn components', level: 1, prerequisites: ['node_1'], exp: 20 },
+      ],
+    });
+    usersService.addExp.mockResolvedValue({
+      newExp: 124,
+      newLevel: 2,
+      leveledUp: false,
+      newBadges: [{ id: 'perfect_quiz', name: '测验全对' }],
+    });
+
+    const result = await service.completeNode('user-1', 'tree-1', 'node_2', {
+      quizAnswers: [0, 0, 0],
+      questions: [
+        { question: 'q1', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+        { question: 'q2', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+        { question: 'q3', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+      ],
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        passed: true,
+        expGained: 24,
+        baseExp: 20,
+        pathBonusExp: 4,
+      }),
+    );
+    expect(usersService.addExp).toHaveBeenCalledWith(
+      'user-1',
+      24,
+      expect.arrayContaining([
+        { id: 'tree_complete_tree-1', name: '完成整棵树：Vue Skill Tree' },
+        { id: 'high_similarity_path_tree-1', name: '高相似度路径' },
+        { id: 'perfect_quiz', name: '测验全对' },
+      ]),
+    );
+    expect(evaluationService.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'exp_gained',
+        exp: 24,
+        metadata: expect.objectContaining({
+          baseExp: 20,
+          pathBonusExp: 4,
+          pathBonusReason: 'recommended_order',
+          similarityScoreAfter: 100,
+        }),
+      }),
+    );
   });
 });

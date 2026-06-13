@@ -14,7 +14,7 @@ const error = ref('')
 const summary = ref<EvaluationSummary | null>(null)
 const rows = ref<EvaluationSkillTree[]>([])
 const activeHelp = ref<string | null>(null)
-const activeTab = ref<'overview' | 'structure' | 'process' | 'details'>('overview')
+const activeTab = ref<'overview' | 'structure' | 'process' | 'rag' | 'gamification' | 'details'>('overview')
 
 onMounted(loadEvaluation)
 
@@ -80,22 +80,60 @@ const processKpis = computed(() => {
       help: t('evaluation.helpAvgQuizScore'),
     },
     {
+      label: t('evaluation.nodeEvents'),
+      value: formatNumber(data.nodeCompletionEvents),
+      sub: t('evaluation.nodeEventsSub'),
+      help: t('evaluation.helpNodeEvents'),
+    },
+  ]
+})
+
+const ragKpis = computed(() => {
+  const data = summary.value
+  if (!data) return []
+  return [
+    {
       label: t('evaluation.ragHitRate'),
       value: formatPercent(data.ragHitRate),
       sub: t('evaluation.ragHitRateSub', { hits: data.ragRetrievalCount }),
       help: t('evaluation.helpRagHitRate'),
     },
     {
-      label: t('evaluation.nodeEvents'),
-      value: formatNumber(data.nodeCompletionEvents),
-      sub: t('evaluation.nodeEventsSub'),
-      help: t('evaluation.helpNodeEvents'),
+      label: t('evaluation.ragEvents'),
+      value: formatNumber(data.eventCounts.rag_retrieved),
+      sub: t('evaluation.ragEventsSub'),
+      help: t('evaluation.helpRagEvents'),
     },
+  ]
+})
+
+const gamificationKpis = computed(() => {
+  const data = summary.value
+  if (!data) return []
+  return [
     {
       label: t('evaluation.badgeEvents'),
       value: formatNumber(data.badgeUnlockEvents),
       sub: t('evaluation.badgeEventsSub'),
       help: t('evaluation.helpBadgeEvents'),
+    },
+    {
+      label: t('evaluation.pathBonusExp'),
+      value: formatNumber(data.totalPathBonusExp),
+      sub: t('evaluation.pathBonusExpSub', { average: formatNumber(data.averagePathBonusExp) }),
+      help: t('evaluation.helpPathBonusExp'),
+    },
+    {
+      label: t('evaluation.userBadges'),
+      value: formatNumber(data.userBadgeCount),
+      sub: t('evaluation.userBadgesSub'),
+      help: t('evaluation.helpUserBadges'),
+    },
+    {
+      label: t('evaluation.userStreak'),
+      value: formatNumber(data.userStreakDays),
+      sub: t('evaluation.userStreakSub'),
+      help: t('evaluation.helpUserStreak'),
     },
   ]
 })
@@ -104,6 +142,8 @@ const tabs = computed(() => [
   { key: 'overview' as const, label: t('evaluation.tabOverview') },
   { key: 'structure' as const, label: t('evaluation.tabStructure') },
   { key: 'process' as const, label: t('evaluation.tabProcess') },
+  { key: 'rag' as const, label: t('evaluation.tabRag') },
+  { key: 'gamification' as const, label: t('evaluation.tabGamification') },
   { key: 'details' as const, label: t('evaluation.tabDetails') },
 ])
 
@@ -434,6 +474,58 @@ function downloadBlob(blob: Blob, filename: string) {
           </article>
         </section>
 
+        <section v-if="activeTab === 'rag'" class="panel phase2-panel">
+          <div class="panel__header">
+            <h3 class="with-help">
+              <span>{{ t('evaluation.ragTitle') }}</span>
+              <span class="help-wrap" @click.stop>
+                <button class="help-dot" type="button" :aria-label="t('evaluation.helpRagPanel')" @click="toggleHelp('panel-rag')">?</button>
+                <span v-if="activeHelp === 'panel-rag'" class="help-popover">{{ t('evaluation.helpRagPanel') }}</span>
+              </span>
+            </h3>
+            <span>{{ t('evaluation.ragSub') }}</span>
+          </div>
+          <div class="process-grid process-grid--compact">
+            <div v-for="item in ragKpis" :key="item.label" class="process-card">
+              <p class="with-help">
+                <span>{{ item.label }}</span>
+                <span class="help-wrap" @click.stop>
+                  <button class="help-dot help-dot--tiny" type="button" :aria-label="item.help" @click="toggleHelp(`rag-${item.label}`)">?</button>
+                  <span v-if="activeHelp === `rag-${item.label}`" class="help-popover">{{ item.help }}</span>
+                </span>
+              </p>
+              <strong>{{ item.value }}</strong>
+              <span>{{ item.sub }}</span>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="activeTab === 'gamification'" class="panel phase2-panel">
+          <div class="panel__header">
+            <h3 class="with-help">
+              <span>{{ t('evaluation.gamificationTitle') }}</span>
+              <span class="help-wrap" @click.stop>
+                <button class="help-dot" type="button" :aria-label="t('evaluation.helpGamificationPanel')" @click="toggleHelp('panel-gamification')">?</button>
+                <span v-if="activeHelp === 'panel-gamification'" class="help-popover">{{ t('evaluation.helpGamificationPanel') }}</span>
+              </span>
+            </h3>
+            <span>{{ t('evaluation.gamificationSub') }}</span>
+          </div>
+          <div class="process-grid process-grid--compact">
+            <div v-for="item in gamificationKpis" :key="item.label" class="process-card">
+              <p class="with-help">
+                <span>{{ item.label }}</span>
+                <span class="help-wrap" @click.stop>
+                  <button class="help-dot help-dot--tiny" type="button" :aria-label="item.help" @click="toggleHelp(`game-${item.label}`)">?</button>
+                  <span v-if="activeHelp === `game-${item.label}`" class="help-popover">{{ item.help }}</span>
+                </span>
+              </p>
+              <strong>{{ item.value }}</strong>
+              <span>{{ item.sub }}</span>
+            </div>
+          </div>
+        </section>
+
         <section v-if="activeTab === 'details'" class="panel table-panel">
           <div class="panel__header">
             <h3 class="with-help">
@@ -556,6 +648,7 @@ function downloadBlob(blob: Blob, filename: string) {
 .notice-panel { margin-bottom: 14px; padding: 11px 14px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.1); color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
 .phase2-panel { margin-bottom: 14px; }
 .process-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.process-grid--compact { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .process-card { padding: 12px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); }
 .process-card p, .process-card span { margin: 0; color: var(--text-muted); font-size: 11px; }
 .process-card strong { display: block; margin: 7px 0 4px; font-size: 22px; color: var(--text-primary); }
@@ -576,6 +669,7 @@ td small { display: block; color: var(--text-muted); max-width: 260px; white-spa
 @media (max-width: 1100px) {
   .kpi-grid, .evaluation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .process-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .process-grid--compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 720px) {
   .evaluation-nav, .evaluation-toolbar { flex-direction: column; align-items: stretch; }
@@ -583,6 +677,7 @@ td small { display: block; color: var(--text-muted); max-width: 260px; white-spa
   .evaluation-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi-grid, .evaluation-grid { grid-template-columns: 1fr; }
   .process-grid { grid-template-columns: 1fr; }
+  .process-grid--compact { grid-template-columns: 1fr; }
   .evaluation-main { padding: 20px 14px 36px; }
 }
 </style>
