@@ -9,6 +9,7 @@ import { RagService } from '../rag/rag.service';
 import { UsersService } from '../users/users.service';
 import { analyzePathSimilarity, PathAnalysisResult } from './path-analysis.util';
 import { EvaluationService } from '../evaluation/evaluation.service';
+import { validateAndNormalizeSkillTree } from './skill-tree-validation.util';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require('pdf-parse');
 
@@ -80,7 +81,23 @@ export class SkillTreesService {
         const chunks = await this.ragService.searchDocuments(userId, id, goal, 5);
         if (chunks.length > 0) documentContext = chunks.join('\n\n');
       }
-      const result = await this.aiService.generateSkillTree(goal, currentLevel, documentContext, language);
+
+      const maxGenerationAttempts = 3;
+      let result: Awaited<ReturnType<AiService['generateSkillTree']>> | undefined;
+      for (let attempt = 1; attempt <= maxGenerationAttempts; attempt++) {
+        try {
+          const generated = await this.aiService.generateSkillTree(goal, currentLevel, documentContext, language);
+          result = validateAndNormalizeSkillTree(generated);
+          break;
+        } catch (err) {
+          this.logger.warn(
+            `Skill tree structural validation failed (id=${id}, attempt ${attempt}/${maxGenerationAttempts}): ${(err as Error).message}`,
+          );
+          if (attempt === maxGenerationAttempts) throw err;
+        }
+      }
+
+      if (!result) throw new Error('Skill tree generation did not produce a result');
       await this.skillTreeModel.findByIdAndUpdate(id, {
         status: 'ready',
         title: result.title,
