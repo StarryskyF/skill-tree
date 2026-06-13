@@ -18,9 +18,11 @@ describe('SkillTreesService generation validation', () => {
   };
   const aiService = {
     generateSkillTree: jest.fn(),
+    generateQuiz: jest.fn(),
   };
   const ragService = {
     searchDocuments: jest.fn(),
+    searchLearningMemory: jest.fn(),
   };
   const usersService = {};
   const evaluationService = {
@@ -57,5 +59,51 @@ describe('SkillTreesService generation validation', () => {
       ],
       edges: [{ id: 'edge_node_2_1', source: 'node_1', target: 'node_2' }],
     });
+  });
+
+  it('uses learning memory when generating node quizzes', async () => {
+    const serviceAny = service as any;
+    serviceAny.findOne = jest.fn().mockResolvedValue({
+      goal: 'Learn Vue',
+      language: 'en-US',
+      completedNodes: [],
+      nodes: [
+        { id: 'node_1', title: 'Basics', description: 'Learn basics', level: 0, prerequisites: [], exp: 10 },
+      ],
+    });
+    ragService.searchLearningMemory.mockResolvedValue({
+      mistakes: [{ content: 'Past mistake about component props', sourceType: 'mistake', metadata: {} }],
+      documents: [{ content: 'Uploaded note about Vue props', sourceType: 'document', metadata: {} }],
+      totalHits: 2,
+    });
+    aiService.generateQuiz.mockResolvedValue([]);
+
+    await service.generateNodeQuiz('user-1', 'tree-1', 'node_1', 'en-US');
+
+    expect(ragService.searchLearningMemory).toHaveBeenCalledWith({
+      userId: 'user-1',
+      skillTreeId: 'tree-1',
+      query: 'Basics\nLearn basics',
+      mistakeLimit: 3,
+      documentLimit: 3,
+    });
+    expect(aiService.generateQuiz).toHaveBeenCalledWith(
+      'Basics',
+      'Learn basics',
+      'Learn Vue',
+      'en-US',
+      expect.stringContaining('Past mistake about component props'),
+    );
+    expect(evaluationService.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'rag_retrieved',
+        metadata: expect.objectContaining({
+          interaction: 'quiz_generation',
+          mistakeHits: 1,
+          documentHits: 1,
+          totalHits: 2,
+        }),
+      }),
+    );
   });
 });

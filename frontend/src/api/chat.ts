@@ -23,6 +23,10 @@ export interface ChatListItem {
   createdAt: string
 }
 
+export type ChatStreamEvent =
+  | { type: 'chunk'; content: string }
+  | { type: 'rag_context'; mistakeHits: number; documentHits: number; totalHits: number }
+
 const BASE_URL = '/api'
 
 function getToken(): string {
@@ -55,7 +59,7 @@ export async function* streamMessage(
   content: string,
   nodeId?: string,
   language?: 'zh-CN' | 'en-US',
-): AsyncGenerator<string> {
+): AsyncGenerator<ChatStreamEvent> {
   const res = await fetch(`${BASE_URL}/chats/${chatId}/messages`, {
     method: 'POST',
     headers: {
@@ -84,7 +88,15 @@ export async function* streamMessage(
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue
       const json = JSON.parse(line.slice(6))
-      if (json.type === 'chunk') yield json.content as string
+      if (json.type === 'chunk') yield { type: 'chunk', content: json.content as string }
+      if (json.type === 'rag_context') {
+        yield {
+          type: 'rag_context',
+          mistakeHits: Number(json.mistakeHits ?? 0),
+          documentHits: Number(json.documentHits ?? 0),
+          totalHits: Number(json.totalHits ?? 0),
+        }
+      }
       if (json.type === 'done') return
       if (json.type === 'error') throw new Error(json.message)
     }

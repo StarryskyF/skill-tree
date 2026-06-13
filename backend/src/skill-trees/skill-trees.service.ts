@@ -183,7 +183,39 @@ export class SkillTreesService {
     if (statuses[nodeId] === 'locked') throw new ForbiddenException('该节点尚未解锁');
     if (statuses[nodeId] === 'completed') throw new BadRequestException('该节点已完成');
 
-    return this.aiService.generateQuiz(node.title, node.description, tree.goal, language ?? tree.language ?? 'zh-CN');
+    const memory = await this.ragService.searchLearningMemory({
+      userId,
+      skillTreeId: treeId,
+      query: `${node.title}\n${node.description}`,
+      mistakeLimit: 3,
+      documentLimit: 3,
+    });
+    await this.logEvaluation({
+      userId,
+      skillTreeId: treeId,
+      nodeId,
+      type: 'rag_retrieved',
+      metadata: {
+        interaction: 'quiz_generation',
+        queryLength: node.title.length + node.description.length,
+        mistakeHits: memory.mistakes.length,
+        documentHits: memory.documents.length,
+        totalHits: memory.totalHits,
+        sourceTypes: [
+          ...(memory.mistakes.length > 0 ? ['mistake'] : []),
+          ...(memory.documents.length > 0 ? ['document'] : []),
+        ],
+      },
+    });
+
+    const learningContext = buildLearningContext(memory.mistakes.map((item) => item.content), memory.documents.map((item) => item.content));
+    return this.aiService.generateQuiz(
+      node.title,
+      node.description,
+      tree.goal,
+      language ?? tree.language ?? 'zh-CN',
+      learningContext,
+    );
   }
 
   async completeNode(
@@ -301,4 +333,15 @@ export class SkillTreesService {
       this.logger.warn(`Evaluation event skipped: ${(err as Error).message}`);
     }
   }
+}
+
+function buildLearningContext(mistakes: string[], documents: string[]): string | undefined {
+  const parts: string[] = [];
+  if (mistakes.length > 0) {
+    parts.push(`Past quiz mistakes:\n${mistakes.map((item, index) => `${index + 1}. ${item}`).join('\n')}`);
+  }
+  if (documents.length > 0) {
+    parts.push(`Uploaded reference snippets:\n${documents.map((item, index) => `${index + 1}. ${item}`).join('\n')}`);
+  }
+  return parts.length > 0 ? parts.join('\n\n') : undefined;
 }

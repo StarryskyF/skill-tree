@@ -5,18 +5,23 @@ export function buildQuizPrompt(
   description: string,
   treeGoal: string,
   language: AppLanguage = 'zh-CN',
+  learningContext?: string,
 ): string {
   return language === 'en-US'
-    ? buildEnglishQuizPrompt(title, description, treeGoal)
-    : buildChineseQuizPrompt(title, description, treeGoal);
+    ? buildEnglishQuizPrompt(title, description, treeGoal, learningContext)
+    : buildChineseQuizPrompt(title, description, treeGoal, learningContext);
 }
 
-function buildChineseQuizPrompt(title: string, description: string, treeGoal: string): string {
+function buildChineseQuizPrompt(title: string, description: string, treeGoal: string, learningContext?: string): string {
+  const contextSection = learningContext
+    ? `\n个性化上下文（来自用户上传资料或历史错题，请用来调整考察重点，但不要在题干中透露来源）：\n${learningContext}\n`
+    : '';
+
   return `你是一个专业的学习测验出题助手。请为下面的技能节点生成 3 道单选题，用来判断用户是否掌握该节点。
 
 学习目标：${treeGoal}
 技能节点：${title}
-节点描述：${description}
+节点描述：${description}${contextSection}
 
 请只返回 JSON 数组，数组长度必须为 3。每道题包含：
 - question: 题干
@@ -33,12 +38,16 @@ function buildChineseQuizPrompt(title: string, description: string, treeGoal: st
 [{"question":"...","options":["...","...","...","..."],"correctIndex":0}]`;
 }
 
-function buildEnglishQuizPrompt(title: string, description: string, treeGoal: string): string {
+function buildEnglishQuizPrompt(title: string, description: string, treeGoal: string, learningContext?: string): string {
+  const contextSection = learningContext
+    ? `\nPersonalized context from uploaded material or past mistakes. Use it to adjust assessment focus, but do not reveal the source in question text:\n${learningContext}\n`
+    : '';
+
   return `You are an expert learning-assessment writer. Generate 3 single-choice questions for the skill node below to check whether the learner has mastered it.
 
 Learning goal: ${treeGoal}
 Skill node: ${title}
-Node description: ${description}
+Node description: ${description}${contextSection}
 
 Return only a JSON array with exactly 3 items. Each question must include:
 - question: The question text
