@@ -47,7 +47,7 @@ export class UsersController {
   @Get('me')
   async getProfile(@Req() req: Request) {
     this.logger.log(`Getting profile for user: ${(req.user as any).id}`);
-    return this.usersService.findById((req.user as any).id);
+    return this.usersService.getProfile((req.user as any).id);
   }
 
   @Put('me/profile')
@@ -85,7 +85,7 @@ export class UsersController {
   async uploadAvatar(@Req() req: Request, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('请选择文件');
     this.logger.log(`Avatar uploaded for user: ${(req.user as any).id}, file: ${file.filename}`);
-    const avatarUrl = `http://localhost:3000/uploads/avatars/${file.filename}`;
+    const avatarUrl = `/uploads/avatars/${file.filename}`;
     return this.usersService.updateAvatar((req.user as any).id, avatarUrl);
   }
 }

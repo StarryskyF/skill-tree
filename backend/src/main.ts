@@ -17,9 +17,13 @@ async function bootstrap() {
   const uploadsDir = join(__dirname, '..', 'uploads', 'avatars');
   if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
 
+  const corsOrigin = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : ['http://localhost:5173'];
+
   // CORS
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: corsOrigin,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,

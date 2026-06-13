@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi, type UserInfo } from '../api/auth'
+import { userApi } from '../api/user'
 
 function getAuthErrorMessage(err: unknown, fallback: string) {
   const axiosError = err as { response?: { data?: { message?: string | string[] } }; message?: string }
@@ -36,6 +37,19 @@ export const useAuthStore = defineStore(
       }
     }
 
+    async function validateSession() {
+      if (!token.value) return false
+      try {
+        const res = await userApi.getProfile()
+        if (!res.success || !res.data) throw new Error(res.message)
+        user.value = res.data
+        return true
+      } catch {
+        logout()
+        return false
+      }
+    }
+
     function updateUser(partial: Partial<UserInfo>) {
       if (user.value) Object.assign(user.value, partial)
     }
@@ -45,7 +59,7 @@ export const useAuthStore = defineStore(
       user.value = null
     }
 
-    return { token, user, isAuthenticated, loginAction, registerAction, updateUser, logout }
+    return { token, user, isAuthenticated, loginAction, registerAction, validateSession, updateUser, logout }
   },
   {
     persist: {

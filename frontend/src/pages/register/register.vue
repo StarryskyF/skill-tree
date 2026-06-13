@@ -20,7 +20,7 @@ const USERNAME_MIN_LENGTH = 3
 const USERNAME_MAX_LENGTH = 32
 const NAME_MAX_LENGTH = 30
 const PASSWORD_MIN_LENGTH = 6
-const PASSWORD_MAX_LENGTH = 16
+const PASSWORD_MAX_LENGTH = 128
 
 function validateRegisterForm() {
   const trimmedUsername = username.value.trim()
