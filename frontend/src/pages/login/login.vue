@@ -18,7 +18,7 @@ const loading = ref(false)
 const USERNAME_MIN_LENGTH = 3
 const USERNAME_MAX_LENGTH = 32
 const PASSWORD_MIN_LENGTH = 6
-const PASSWORD_MAX_LENGTH = 16
+const PASSWORD_MAX_LENGTH = 128
 
 function validateLoginForm() {
   const trimmedUsername = username.value.trim()

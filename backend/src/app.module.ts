@@ -9,10 +9,11 @@ import { SkillTreesModule } from './skill-trees/skill-trees.module';
 import { ChatModule } from './chat/chat.module';
 import { RagModule } from './rag/rag.module';
 import { EvaluationModule } from './evaluation/evaluation.module';
+import { validateEnv } from './config/env.validation';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env', validate: validateEnv }),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

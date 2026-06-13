@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
@@ -18,11 +18,27 @@ function calcLevel(exp: number): number {
 const LEVEL_NAMES = ['', '入门者', '学习者', '进阶者', '熟练者', '专家'];
 
 const MILESTONE_BADGES: Array<{ id: string; name: string; check: (count: number, level: number) => boolean }> = [
-  { id: 'first_node',    name: '🌱 初出茅庐', check: (c) => c >= 1 },
-  { id: 'ten_nodes',     name: '🔥 势如破竹', check: (c) => c >= 10 },
-  { id: 'thirty_nodes',  name: '🏆 知识猎人', check: (c) => c >= 30 },
-  { id: 'level_3',       name: '⚡ 升级达人', check: (_, l) => l >= 3 },
+  { id: 'first_node', name: '初出茅庐', check: (count) => count >= 1 },
+  { id: 'ten_nodes', name: '势如破竹', check: (count) => count >= 10 },
+  { id: 'thirty_nodes', name: '知识猎人', check: (count) => count >= 30 },
+  { id: 'level_3', name: '升级达人', check: (_, level) => level >= 3 },
 ];
+
+export interface PublicUser {
+  id: string;
+  username: string;
+  name: string;
+  avatar?: string;
+}
+
+function toPublicUser(user: UserDocument): PublicUser {
+  return {
+    id: String(user._id),
+    username: user.username,
+    name: user.name,
+    avatar: user.avatar,
+  };
+}
 
 @Injectable()
 export class UsersService {
@@ -30,8 +46,10 @@ export class UsersService {
 
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
-  async findByUsername(username: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ username }).exec();
+  async findByUsername(username: string, includePassword = false): Promise<UserDocument | null> {
+    const query = this.userModel.findOne({ username });
+    if (includePassword) query.select('+password');
+    return query.exec();
   }
 
   async findById(id: string): Promise<UserDocument | null> {
@@ -45,16 +63,22 @@ export class UsersService {
     return user.save();
   }
 
-  async updateProfile(id: string, dto: UpdateProfileDto) {
+  async getProfile(id: string): Promise<PublicUser> {
+    const user = await this.userModel.findById(id).exec();
+    if (!user) throw new BadRequestException('用户不存在');
+    return toPublicUser(user);
+  }
+
+  async updateProfile(id: string, dto: UpdateProfileDto): Promise<PublicUser> {
     this.logger.log(`Updating profile for user: ${id}`);
     const user = await this.userModel.findByIdAndUpdate(id, { name: dto.name }, { new: true }).exec();
     if (!user) throw new BadRequestException('用户不存在');
-    return { id: user._id, username: user.username, name: user.name, avatar: user.avatar };
+    return toPublicUser(user);
   }
 
   async updatePassword(id: string, oldPassword: string, newPassword: string): Promise<void> {
     this.logger.log(`Updating password for user: ${id}`);
-    const user = await this.userModel.findById(id).exec();
+    const user = await this.userModel.findById(id).select('+password').exec();
     if (!user) throw new BadRequestException('用户不存在');
     const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch) {
@@ -64,11 +88,11 @@ export class UsersService {
     await user.save();
   }
 
-  async updateAvatar(id: string, avatarUrl: string) {
+  async updateAvatar(id: string, avatarUrl: string): Promise<PublicUser> {
     this.logger.log(`Updating avatar for user: ${id}`);
     const user = await this.userModel.findByIdAndUpdate(id, { avatar: avatarUrl }, { new: true }).exec();
     if (!user) throw new BadRequestException('用户不存在');
-    return { id: user._id, username: user.username, name: user.name, avatar: user.avatar };
+    return toPublicUser(user);
   }
 
   async addExp(
@@ -85,17 +109,14 @@ export class UsersService {
     const newLevel = calcLevel(newExp);
     const leveledUp = newLevel > oldLevel;
 
-    // 检查里程碑徽章
     const existingBadges = new Set(user.badges ?? []);
     const earnedMilestones = MILESTONE_BADGES
-      .filter((b) => !existingBadges.has(b.id) && b.check(newTotalCompleted, newLevel))
-      .map((b) => ({ id: b.id, name: b.name }));
+      .filter((badge) => !existingBadges.has(badge.id) && badge.check(newTotalCompleted, newLevel))
+      .map((badge) => ({ id: badge.id, name: badge.name }));
 
-    // 合并树完成徽章
-    const allNewBadges = [...earnedMilestones, ...extraBadges.filter((b) => !existingBadges.has(b.id))];
-    const newBadgeIds = allNewBadges.map((b) => b.id);
+    const allNewBadges = [...earnedMilestones, ...extraBadges.filter((badge) => !existingBadges.has(badge.id))];
+    const newBadgeIds = allNewBadges.map((badge) => badge.id);
 
-    // 更新连续学习天数
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const last = user.lastActiveDate ? new Date(user.lastActiveDate) : null;
