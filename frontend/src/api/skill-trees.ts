@@ -37,6 +37,11 @@ export interface QuizQuestion {
   correctIndex: number
 }
 
+export interface QuizSession {
+  quizSessionId: string
+  questions: QuizQuestion[]
+}
+
 export interface CompleteNodeResult {
   passed: boolean
   score: number
@@ -105,13 +110,13 @@ export function getNodeStatuses(treeId: string) {
 }
 
 export function generateQuiz(treeId: string, nodeId: string, language?: 'zh-CN' | 'en-US') {
-  return client.post<QuizQuestion[]>(`/skill-trees/${treeId}/nodes/${nodeId}/quiz`, { language }, { timeout: 60000 })
+  return client.post<QuizSession>(`/skill-trees/${treeId}/nodes/${nodeId}/quiz`, { language }, { timeout: 60000 })
 }
 
 export function completeNode(
   treeId: string,
   nodeId: string,
-  dto: { quizAnswers: number[]; questions: QuizQuestion[] },
+  dto: { quizSessionId: string; quizAnswers: number[] },
 ) {
   return client.post<CompleteNodeResult>(`/skill-trees/${treeId}/nodes/${nodeId}/complete`, dto)
 }

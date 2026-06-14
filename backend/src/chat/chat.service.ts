@@ -26,6 +26,7 @@ export class ChatService {
   ) {}
 
   async createChat(userId: string, dto: CreateChatDto) {
+    await this.assertOwnsSkillTree(userId, dto.skillTreeId);
     this.logger.log(`Creating chat for user ${userId}, skillTree ${dto.skillTreeId}`);
     const chat = await this.chatModel.create({
       userId,
@@ -37,6 +38,7 @@ export class ChatService {
   }
 
   async listChats(userId: string, skillTreeId: string) {
+    await this.assertOwnsSkillTree(userId, skillTreeId);
     const chats = await this.chatModel
       .find({ userId, skillTreeId })
       .sort({ updatedAt: -1 })
@@ -63,7 +65,7 @@ export class ChatService {
     const chat = await this.chatModel.findOne({ _id: chatId, userId });
     if (!chat) throw new NotFoundException('Chat not found');
 
-    const skillTree = await this.skillTreeModel.findById(chat.skillTreeId).lean();
+    const skillTree = await this.skillTreeModel.findOne({ _id: chat.skillTreeId, userId }).lean();
     if (!skillTree) throw new NotFoundException('Skill tree not found');
 
     const language = dto.language ?? skillTree.language ?? 'zh-CN';
@@ -198,6 +200,11 @@ export class ChatService {
     } catch (err) {
       this.logger.warn(`Evaluation event skipped: ${(err as Error).message}`);
     }
+  }
+
+  private async assertOwnsSkillTree(userId: string, skillTreeId: string) {
+    const skillTree = await this.skillTreeModel.findOne({ _id: skillTreeId, userId }).select('_id').lean();
+    if (!skillTree) throw new NotFoundException('Skill tree not found');
   }
 }
 

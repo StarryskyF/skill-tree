@@ -1,26 +1,27 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { generateQuiz, completeNode } from '../../../../api/skill-trees'
-import type { QuizQuestion, CompleteNodeResult } from '../../../../api/skill-trees'
+import type { QuizQuestion, QuizSession, CompleteNodeResult } from '../../../../api/skill-trees'
 import { useI18n } from '../../../../i18n'
 
 const props = defineProps<{
   treeId: string
   nodeId: string
   nodeTitle: string
-  initialQuestions?: QuizQuestion[]
+  initialQuiz?: QuizSession
 }>()
 
 const emit = defineEmits<{
   complete: [result: CompleteNodeResult]
   close: []
-  questionsGenerated: [questions: QuizQuestion[]]
+  quizGenerated: [quiz: QuizSession]
 }>()
 
 const { locale, t } = useI18n()
 type Phase = 'loading' | 'quiz' | 'result'
 const phase = ref<Phase>('loading')
 const errorMsg = ref('')
+const quizSessionId = ref('')
 const questions = ref<QuizQuestion[]>([])
 const selectedAnswers = ref<number[]>([-1, -1, -1])
 const passed = ref(false)
@@ -31,16 +32,18 @@ const completeResult = ref<CompleteNodeResult | null>(null)
 const allAnswered = computed(() => selectedAnswers.value.every((answer) => answer !== -1))
 
 onMounted(async () => {
-  if (props.initialQuestions) {
-    questions.value = props.initialQuestions
+  if (props.initialQuiz) {
+    quizSessionId.value = props.initialQuiz.quizSessionId
+    questions.value = props.initialQuiz.questions
     phase.value = 'quiz'
     return
   }
   try {
     const res = await generateQuiz(props.treeId, props.nodeId, locale.value)
     if (!res.data) throw new Error(res.message || t('quiz.generateFailed'))
-    questions.value = res.data
-    emit('questionsGenerated', res.data)
+    quizSessionId.value = res.data.quizSessionId
+    questions.value = res.data.questions
+    emit('quizGenerated', res.data)
     phase.value = 'quiz'
   } catch (err) {
     errorMsg.value = (err as Error).message || t('quiz.generateFailed')
@@ -53,8 +56,8 @@ async function submitAnswers() {
   submitting.value = true
   try {
     const res = await completeNode(props.treeId, props.nodeId, {
+      quizSessionId: quizSessionId.value,
       quizAnswers: selectedAnswers.value,
-      questions: questions.value,
     })
     if (!res.data) throw new Error(res.message || t('quiz.submitFailed'))
     passed.value = res.data.passed
@@ -70,12 +73,23 @@ async function submitAnswers() {
   }
 }
 
-function retry() {
+async function retry() {
   selectedAnswers.value = [-1, -1, -1]
   passed.value = false
   score.value = 0
   errorMsg.value = ''
-  phase.value = 'quiz'
+  phase.value = 'loading'
+  try {
+    const res = await generateQuiz(props.treeId, props.nodeId, locale.value)
+    if (!res.data) throw new Error(res.message || t('quiz.generateFailed'))
+    quizSessionId.value = res.data.quizSessionId
+    questions.value = res.data.questions
+    emit('quizGenerated', res.data)
+    phase.value = 'quiz'
+  } catch (err) {
+    errorMsg.value = (err as Error).message || t('quiz.generateFailed')
+    phase.value = 'result'
+  }
 }
 </script>
 

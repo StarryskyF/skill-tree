@@ -33,6 +33,11 @@ interface QuizQuestion {
   correctIndex: number;
 }
 
+interface QuizSession {
+  quizSessionId: string;
+  questions: QuizQuestion[];
+}
+
 interface ScenarioResult {
   scenarioId: string;
   skillTreeId?: string;
@@ -120,18 +125,23 @@ async function runScenario(token: string, scenario: EvaluationScenario): Promise
       const node = nextAvailableNode(tree);
       if (!node) break;
 
-      const questions = await api<QuizQuestion[]>(
+      let quiz = await api<QuizSession>(
         `/skill-trees/${tree._id}/nodes/${node.id}/quiz`,
         { method: 'POST', body: JSON.stringify({ language: scenario.language }) },
         token,
       );
 
       if (index === 0 && scenario.failFirstQuiz) {
-        const failed = await completeQuiz(token, tree._id, node.id, questions, 'fail');
+        const failed = await completeQuiz(token, tree._id, node.id, quiz, 'fail');
         result.quizAttempts.push({ nodeId: node.id, intended: 'fail', ...failed });
+        quiz = await api<QuizSession>(
+          `/skill-trees/${tree._id}/nodes/${node.id}/quiz`,
+          { method: 'POST', body: JSON.stringify({ language: scenario.language }) },
+          token,
+        );
       }
 
-      const passed = await completeQuiz(token, tree._id, node.id, questions, 'pass');
+      const passed = await completeQuiz(token, tree._id, node.id, quiz, 'pass');
       result.quizAttempts.push({ nodeId: node.id, intended: 'pass', ...passed });
       tree = await api<SkillTree>(`/skill-trees/${tree._id}`, { method: 'GET' }, token);
       result.completedNodes = tree.completedNodes ?? [];
@@ -151,16 +161,16 @@ async function completeQuiz(
   token: string,
   treeId: string,
   nodeId: string,
-  questions: QuizQuestion[],
+  quiz: QuizSession,
   mode: 'fail' | 'pass',
 ): Promise<{ score: number; passed: boolean; expGained?: number }> {
-  const quizAnswers = questions.map((question) => {
+  const quizAnswers = quiz.questions.map((question) => {
     if (mode === 'pass') return question.correctIndex;
     return (question.correctIndex + 1) % question.options.length;
   });
   return api(`/skill-trees/${treeId}/nodes/${nodeId}/complete`, {
     method: 'POST',
-    body: JSON.stringify({ quizAnswers, questions }),
+    body: JSON.stringify({ quizSessionId: quiz.quizSessionId, quizAnswers }),
   }, token);
 }
 

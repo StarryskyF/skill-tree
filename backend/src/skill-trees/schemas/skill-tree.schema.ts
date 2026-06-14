@@ -33,6 +33,18 @@ export class NodeQuizPerformance {
   @Prop() lastFailedAt?: Date;
 }
 
+@Schema({ _id: false })
+export class PendingQuizSession {
+  @Prop({ required: true }) id: string;
+  @Prop({ required: true }) nodeId: string;
+  @Prop({ type: [Object], default: [] }) questions: Array<{
+    question: string;
+    options: string[];
+    correctIndex: number;
+  }>;
+  @Prop({ default: Date.now }) createdAt: Date;
+}
+
 @Schema({ timestamps: true })
 export class SkillTree {
   @Prop({ required: true }) userId: string;
@@ -46,6 +58,7 @@ export class SkillTree {
   @Prop({ type: [Object], default: [] }) edges: SkillEdge[];
   @Prop({ type: [String], default: [] }) completedNodes: string[];
   @Prop({ type: [Object], default: [] }) quizPerformance: NodeQuizPerformance[];
+  @Prop({ type: [Object], default: [] }) pendingQuizSessions: PendingQuizSession[];
   @Prop() errorMessage?: string;
 }
 

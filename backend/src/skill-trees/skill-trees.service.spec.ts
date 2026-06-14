@@ -70,6 +70,7 @@ describe('SkillTreesService generation validation', () => {
       goal: 'Learn Vue',
       language: 'en-US',
       completedNodes: [],
+      pendingQuizSessions: [],
       nodes: [
         { id: 'node_1', title: 'Basics', description: 'Learn basics', level: 0, prerequisites: [], exp: 10 },
       ],
@@ -79,9 +80,13 @@ describe('SkillTreesService generation validation', () => {
       documents: [{ content: 'Uploaded note about Vue props', sourceType: 'document', metadata: {} }],
       totalHits: 2,
     });
-    aiService.generateQuiz.mockResolvedValue([]);
+    aiService.generateQuiz.mockResolvedValue([
+      { question: 'q1', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+      { question: 'q2', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+      { question: 'q3', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+    ]);
 
-    await service.generateNodeQuiz('user-1', 'tree-1', 'node_1', 'en-US');
+    const result = await service.generateNodeQuiz('user-1', 'tree-1', 'node_1', 'en-US');
 
     expect(ragService.searchLearningMemory).toHaveBeenCalledWith({
       userId: 'user-1',
@@ -108,6 +113,20 @@ describe('SkillTreesService generation validation', () => {
         }),
       }),
     );
+    expect(result.quizSessionId).toEqual(expect.any(String));
+    expect(result.questions).toHaveLength(3);
+    expect(skillTreeModel.findByIdAndUpdate).toHaveBeenCalledWith(
+      'tree-1',
+      expect.objectContaining({
+        pendingQuizSessions: [
+          expect.objectContaining({
+            id: result.quizSessionId,
+            nodeId: 'node_1',
+            questions: result.questions,
+          }),
+        ],
+      }),
+    );
   });
 
   it('records quiz performance when a quiz fails', async () => {
@@ -115,18 +134,26 @@ describe('SkillTreesService generation validation', () => {
     serviceAny.findOne = jest.fn().mockResolvedValue({
       completedNodes: [],
       quizPerformance: [],
+      pendingQuizSessions: [
+        {
+          id: 'quiz-1',
+          nodeId: 'node_1',
+          createdAt: new Date(),
+          questions: [
+            { question: 'q1', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+            { question: 'q2', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+            { question: 'q3', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+          ],
+        },
+      ],
       nodes: [
         { id: 'node_1', title: 'Basics', description: 'Learn basics', level: 0, prerequisites: [], exp: 10 },
       ],
     });
 
     const result = await service.completeNode('user-1', 'tree-1', 'node_1', {
+      quizSessionId: 'quiz-1',
       quizAnswers: [1, 1, 1],
-      questions: [
-        { question: 'q1', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
-        { question: 'q2', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
-        { question: 'q3', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
-      ],
     });
 
     expect(result.passed).toBe(false);
@@ -141,6 +168,7 @@ describe('SkillTreesService generation validation', () => {
           lastScore: 0,
         }),
       ],
+      pendingQuizSessions: [],
     });
   });
 
@@ -150,6 +178,18 @@ describe('SkillTreesService generation validation', () => {
       title: 'Vue Skill Tree',
       completedNodes: ['node_1'],
       quizPerformance: [],
+      pendingQuizSessions: [
+        {
+          id: 'quiz-2',
+          nodeId: 'node_2',
+          createdAt: new Date(),
+          questions: [
+            { question: 'q1', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+            { question: 'q2', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+            { question: 'q3', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+          ],
+        },
+      ],
       nodes: [
         { id: 'node_1', title: 'Basics', description: 'Learn basics', level: 0, prerequisites: [], exp: 10 },
         { id: 'node_2', title: 'Components', description: 'Learn components', level: 1, prerequisites: ['node_1'], exp: 20 },
@@ -163,12 +203,8 @@ describe('SkillTreesService generation validation', () => {
     });
 
     const result = await service.completeNode('user-1', 'tree-1', 'node_2', {
+      quizSessionId: 'quiz-2',
       quizAnswers: [0, 0, 0],
-      questions: [
-        { question: 'q1', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
-        { question: 'q2', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
-        { question: 'q3', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
-      ],
     });
 
     expect(result).toEqual(

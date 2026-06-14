@@ -1,7 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { NodeQuizPerformance, SkillNode, SkillTree, SkillTreeDocument } from './schemas/skill-tree.schema';
+import { randomUUID } from 'crypto';
+import { NodeQuizPerformance, PendingQuizSession, SkillNode, SkillTree, SkillTreeDocument } from './schemas/skill-tree.schema';
 import { CreateSkillTreeDto, type AppLanguage } from './dto/create-skill-tree.dto';
 import { AiService, QuizQuestion } from '../ai/ai.service';
 import { CompleteNodeDto } from './dto/complete-node.dto';
@@ -12,6 +13,11 @@ import { EvaluationService } from '../evaluation/evaluation.service';
 import { validateAndNormalizeSkillTree } from './skill-tree-validation.util';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require('pdf-parse');
+
+export interface NodeQuizSession {
+  quizSessionId: string;
+  questions: QuizQuestion[];
+}
 
 @Injectable()
 export class SkillTreesService {
@@ -45,8 +51,7 @@ export class SkillTreesService {
     let hasPdf = false;
     if (file) {
       try {
-        const parsed = await pdfParse(file.buffer);
-        const text = parsed.text.replace(/\s+/g, ' ').trim();
+        const text = (await extractPdfText(file.buffer)).replace(/\s+/g, ' ').trim();
         const chunks: string[] = [];
         for (let i = 0; i < text.length && chunks.length < 20; i += 800) {
           const chunk = text.slice(i, i + 800).trim();
@@ -174,7 +179,7 @@ export class SkillTreesService {
     treeId: string,
     nodeId: string,
     language?: AppLanguage,
-  ): Promise<QuizQuestion[]> {
+  ): Promise<NodeQuizSession> {
     const tree = await this.findOne(userId, treeId);
     const node = tree.nodes.find((n) => n.id === nodeId);
     if (!node) throw new NotFoundException('节点不存在');
@@ -209,13 +214,18 @@ export class SkillTreesService {
     });
 
     const learningContext = buildLearningContext(memory.mistakes.map((item) => item.content), memory.documents.map((item) => item.content));
-    return this.aiService.generateQuiz(
+    const questions = await this.aiService.generateQuiz(
       node.title,
       node.description,
       tree.goal,
       language ?? tree.language ?? 'zh-CN',
       learningContext,
     );
+    const quizSessionId = randomUUID();
+    const pendingQuizSessions = pruneQuizSessions(tree.pendingQuizSessions ?? [], nodeId);
+    pendingQuizSessions.push({ id: quizSessionId, nodeId, questions, createdAt: new Date() });
+    await this.skillTreeModel.findByIdAndUpdate(treeId, { pendingQuizSessions });
+    return { quizSessionId, questions };
   }
 
   async completeNode(
@@ -243,28 +253,35 @@ export class SkillTreesService {
     if (statuses[nodeId] === 'locked') throw new ForbiddenException('该节点尚未解锁');
     if (statuses[nodeId] === 'completed') throw new BadRequestException('该节点已完成');
 
+    const quizSession = findQuizSession(tree.pendingQuizSessions ?? [], dto.quizSessionId, nodeId);
+    if (!quizSession) {
+      throw new BadRequestException('Quiz session expired. Please generate a new quiz.');
+    }
+
     let correct = 0;
     const mistakes: { question: string; userAnswer: string; correctAnswer: string }[] = [];
-    for (let i = 0; i < dto.questions.length; i++) {
-      if (dto.quizAnswers[i] === dto.questions[i].correctIndex) {
+    for (let i = 0; i < quizSession.questions.length; i++) {
+      const question = quizSession.questions[i];
+      if (dto.quizAnswers[i] === question.correctIndex) {
         correct++;
       } else {
         mistakes.push({
-          question: dto.questions[i].question,
-          userAnswer: dto.questions[i].options[dto.quizAnswers[i]] ?? '未作答',
-          correctAnswer: dto.questions[i].options[dto.questions[i].correctIndex],
+          question: question.question,
+          userAnswer: question.options[dto.quizAnswers[i]] ?? '未作答',
+          correctAnswer: question.options[question.correctIndex],
         });
       }
     }
     const score = correct;
     const passed = score >= 2;
+    const remainingQuizSessions = removeQuizSession(tree.pendingQuizSessions ?? [], dto.quizSessionId);
     await this.logEvaluation({
       userId,
       skillTreeId: treeId,
       nodeId,
       type: passed ? 'quiz_passed' : 'quiz_failed',
       score,
-      metadata: { questionCount: dto.questions.length, mistakeCount: mistakes.length },
+      metadata: { questionCount: quizSession.questions.length, mistakeCount: mistakes.length },
     });
 
     // 无论通过与否，都存储本次错题
@@ -278,7 +295,7 @@ export class SkillTreesService {
 
     if (!passed) {
       const quizPerformance = updateQuizPerformance(tree.quizPerformance ?? [], nodeId, score, false);
-      await this.skillTreeModel.findByIdAndUpdate(treeId, { quizPerformance });
+      await this.skillTreeModel.findByIdAndUpdate(treeId, { quizPerformance, pendingQuizSessions: remainingQuizSessions });
       return { passed: false, score, newStatuses: statuses };
     }
 
@@ -287,6 +304,7 @@ export class SkillTreesService {
     await this.skillTreeModel.findByIdAndUpdate(treeId, {
       completedNodes: updatedCompletedNodes,
       quizPerformance,
+      pendingQuizSessions: remainingQuizSessions,
     });
     this.logger.log(`Node completed (treeId=${treeId}, nodeId=${nodeId})`);
     await this.logEvaluation({
@@ -308,7 +326,7 @@ export class SkillTreesService {
     const treeBadges = [
       ...(treeComplete ? [{ id: `tree_complete_${treeId}`, name: `完成整棵树：${tree.title}` }] : []),
       ...(afterPath.similarityScore >= 80 ? [{ id: `high_similarity_path_${treeId}`, name: '高相似度路径' }] : []),
-      ...(score === dto.questions.length ? [{ id: 'perfect_quiz', name: '测验全对' }] : []),
+      ...(score === quizSession.questions.length ? [{ id: 'perfect_quiz', name: '测验全对' }] : []),
     ];
 
     const expGained = pathReward.totalExp;
@@ -389,6 +407,45 @@ function updateQuizPerformance(
 
   const others = performances.filter((item) => item.nodeId !== nodeId);
   return [...others, next];
+}
+
+function findQuizSession(
+  sessions: PendingQuizSession[],
+  quizSessionId: string,
+  nodeId: string,
+): PendingQuizSession | undefined {
+  return sessions.find((session) => session.id === quizSessionId && session.nodeId === nodeId);
+}
+
+function removeQuizSession(sessions: PendingQuizSession[], quizSessionId: string): PendingQuizSession[] {
+  return sessions.filter((session) => session.id !== quizSessionId);
+}
+
+function pruneQuizSessions(sessions: PendingQuizSession[], nodeId: string): PendingQuizSession[] {
+  const cutoff = Date.now() - 30 * 60 * 1000;
+  return sessions.filter((session) => {
+    const createdAt = session.createdAt ? new Date(session.createdAt).getTime() : 0;
+    return createdAt >= cutoff && session.nodeId !== nodeId;
+  });
+}
+
+async function extractPdfText(buffer: Buffer): Promise<string> {
+  if (typeof pdfParse === 'function') {
+    const parsed = await pdfParse(buffer);
+    return parsed.text ?? '';
+  }
+
+  if (typeof pdfParse.PDFParse === 'function') {
+    const parser = new pdfParse.PDFParse({ data: buffer });
+    try {
+      const parsed = await parser.getText();
+      return parsed.text ?? '';
+    } finally {
+      await parser.destroy?.();
+    }
+  }
+
+  throw new Error('Unsupported pdf-parse API');
 }
 
 function buildLearningContext(mistakes: string[], documents: string[]): string | undefined {

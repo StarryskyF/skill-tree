@@ -7,7 +7,7 @@ import { Controls } from '@vue-flow/controls'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/controls/dist/style.css'
 import { getSkillTree, getNodeStatuses, getPathAnalysis } from '../../../api/skill-trees'
-import type { SkillTree, SkillNode, NodeStatus, QuizQuestion, CompleteNodeResult, PathAnalysisResult } from '../../../api/skill-trees'
+import type { SkillTree, SkillNode, NodeStatus, QuizSession, CompleteNodeResult, PathAnalysisResult } from '../../../api/skill-trees'
 import { useI18n } from '../../../i18n'
 import ThemeToggle from '../../../components/ThemeToggle.vue'
 import LanguageToggle from '../../../components/LanguageToggle.vue'
@@ -26,7 +26,7 @@ const loading = ref(true)
 const error = ref('')
 const nodeStatuses = ref<Record<string, NodeStatus>>({})
 const quizModalNodeId = ref<string | null>(null)
-const nodeQuizCache = ref<Record<string, QuizQuestion[]>>({})
+const nodeQuizCache = ref<Record<string, QuizSession>>({})
 const chatOpen = ref(false)
 const focusedNodeId = ref<string | null>(null)
 const justCompletedNodeId = ref<string | null>(null)
@@ -127,6 +127,7 @@ function onNodeClick({ node }: { node: { id: string; data: { status: NodeStatus 
 }
 
 function onQuizComplete(result: CompleteNodeResult) {
+  if (quizModalNodeId.value) delete nodeQuizCache.value[quizModalNodeId.value]
   const prevStatuses = { ...nodeStatuses.value }
   nodeStatuses.value = result.newStatuses
 
@@ -157,11 +158,12 @@ function onQuizComplete(result: CompleteNodeResult) {
 }
 
 function onQuizClose() {
+  if (quizModalNodeId.value) delete nodeQuizCache.value[quizModalNodeId.value]
   quizModalNodeId.value = null
 }
 
-function onQuestionsGenerated(questions: QuizQuestion[]) {
-  if (quizModalNodeId.value) nodeQuizCache.value[quizModalNodeId.value] = questions
+function onQuizGenerated(quiz: QuizSession) {
+  if (quizModalNodeId.value) nodeQuizCache.value[quizModalNodeId.value] = quiz
 }
 
 async function refreshPathAnalysis() {
@@ -269,10 +271,10 @@ const nodeIdToTitle = computed(() => {
       :tree-id="(route.params.id as string)"
       :node-id="quizModalNodeId"
       :node-title="quizModalNode.title"
-      :initial-questions="nodeQuizCache[quizModalNodeId]"
+      :initial-quiz="nodeQuizCache[quizModalNodeId]"
       @complete="onQuizComplete"
       @close="onQuizClose"
-      @questions-generated="onQuestionsGenerated"
+      @quiz-generated="onQuizGenerated"
     />
 
     <LevelUpOverlay
