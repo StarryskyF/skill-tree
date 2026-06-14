@@ -96,17 +96,25 @@ describe('validateAndNormalizeSkillTree', () => {
     ).toThrow('cycle');
   });
 
-  it('rejects dependencies that do not move to a higher level', () => {
-    expect(() =>
-      validateAndNormalizeSkillTree(
-        validTree({
-          nodes: [
-            { id: 'node_1', title: 'Basics', description: 'Learn basics', level: 1, prerequisites: [], exp: 10 },
-            { id: 'node_2', title: 'Components', description: 'Learn components', level: 1, prerequisites: ['node_1'], exp: 20 },
-          ],
-          edges: [{ id: 'edge_1', source: 'node_1', target: 'node_2' }],
-        }),
-      ),
-    ).toThrow('Invalid level order');
+  it('normalizes levels from prerequisites instead of rejecting flat AI output', () => {
+    const result = validateAndNormalizeSkillTree(
+      validTree({
+        nodes: [
+          { id: 'node_1', title: 'Basics', description: 'Learn basics', level: 1, prerequisites: [], exp: 10 },
+          { id: 'node_2', title: 'Components', description: 'Learn components', level: 1, prerequisites: ['node_1'], exp: 20 },
+          { id: 'node_3', title: 'Routing', description: 'Learn routing', level: 1, prerequisites: ['node_2'], exp: 30 },
+        ],
+        edges: [
+          { id: 'edge_1', source: 'node_1', target: 'node_2' },
+          { id: 'edge_2', source: 'node_2', target: 'node_3' },
+        ],
+      }),
+    );
+
+    expect(result.nodes.map((node) => ({ id: node.id, level: node.level }))).toEqual([
+      { id: 'node_1', level: 0 },
+      { id: 'node_2', level: 1 },
+      { id: 'node_3', level: 2 },
+    ]);
   });
 });

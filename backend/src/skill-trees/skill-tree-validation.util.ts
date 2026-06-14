@@ -20,16 +20,15 @@ export function validateAndNormalizeSkillTree(tree: SkillTreeAiResult): SkillTre
   }
 
   const nodes = tree.nodes.map((node) => normalizeNode(node, nodeIds));
-  const nodeById = new Map(nodes.map((node) => [node.id, node]));
   validateEdges(tree.edges, nodeIds);
   validateEdgePrerequisiteConsistency(nodes, tree.edges);
   validateAcyclic(nodes);
-  validateLevelOrdering(nodes, nodeById);
+  const normalizedLevels = normalizeLevels(nodes);
 
   return {
     ...tree,
-    nodes,
-    edges: buildNormalizedEdges(nodes),
+    nodes: normalizedLevels,
+    edges: buildNormalizedEdges(normalizedLevels),
   };
 }
 
@@ -122,18 +121,24 @@ function validateAcyclic(nodes: ValidationNode[]) {
   }
 }
 
-function validateLevelOrdering(nodes: ValidationNode[], nodeById: Map<string, ValidationNode>) {
-  for (const node of nodes) {
-    for (const prerequisite of node.prerequisites) {
-      const prerequisiteNode = nodeById.get(prerequisite);
-      if (!prerequisiteNode) continue;
-      if (prerequisiteNode.level >= node.level) {
-        throw new SkillTreeValidationError(
-          `Invalid level order: ${prerequisiteNode.id} (level ${prerequisiteNode.level}) -> ${node.id} (level ${node.level})`,
-        );
-      }
+function normalizeLevels(nodes: ValidationNode[]): ValidationNode[] {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const memo = new Map<string, number>();
+
+  const levelFor = (nodeId: string): number => {
+    if (memo.has(nodeId)) return memo.get(nodeId) ?? 0;
+    const node = nodeById.get(nodeId);
+    if (!node || node.prerequisites.length === 0) {
+      memo.set(nodeId, 0);
+      return 0;
     }
-  }
+
+    const level = 1 + Math.max(...node.prerequisites.map(levelFor));
+    memo.set(nodeId, level);
+    return level;
+  };
+
+  return nodes.map((node) => ({ ...node, level: levelFor(node.id) }));
 }
 
 function buildNormalizedEdges(nodes: ValidationNode[]): ValidationEdge[] {
