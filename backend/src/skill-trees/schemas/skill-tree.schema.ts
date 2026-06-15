@@ -37,12 +37,19 @@ export class NodeQuizPerformance {
 export class PendingQuizSession {
   @Prop({ required: true }) id: string;
   @Prop({ required: true }) nodeId: string;
+  @Prop({ enum: ['active', 'failed', 'passed'], default: 'active' })
+  status: 'active' | 'failed' | 'passed';
   @Prop({ type: [Object], default: [] }) questions: Array<{
     question: string;
     options: string[];
     correctIndex: number;
+    explanation?: string;
   }>;
+  @Prop({ type: [Number], default: undefined }) lastAnswers?: number[];
+  @Prop() lastScore?: number;
+  @Prop({ default: 0 }) attempts: number;
   @Prop({ default: Date.now }) createdAt: Date;
+  @Prop({ default: Date.now }) updatedAt: Date;
 }
 
 @Schema({ timestamps: true })

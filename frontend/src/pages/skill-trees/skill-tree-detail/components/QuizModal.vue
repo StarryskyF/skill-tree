@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { generateQuiz, completeNode } from '../../../../api/skill-trees'
-import type { QuizQuestion, QuizSession, CompleteNodeResult } from '../../../../api/skill-trees'
+import type { CompleteNodeResult, QuizQuestion, QuizReviewItem, QuizSession } from '../../../../api/skill-trees'
 import { useI18n } from '../../../../i18n'
 
 const props = defineProps<{
@@ -28,28 +28,46 @@ const passed = ref(false)
 const score = ref(0)
 const submitting = ref(false)
 const completeResult = ref<CompleteNodeResult | null>(null)
+const review = ref<QuizReviewItem[]>([])
 
 const allAnswered = computed(() => selectedAnswers.value.every((answer) => answer !== -1))
 
 onMounted(async () => {
   if (props.initialQuiz) {
-    quizSessionId.value = props.initialQuiz.quizSessionId
-    questions.value = props.initialQuiz.questions
-    phase.value = 'quiz'
+    applyQuizSession(props.initialQuiz)
     return
   }
-  try {
-    const res = await generateQuiz(props.treeId, props.nodeId, locale.value)
-    if (!res.data) throw new Error(res.message || t('quiz.generateFailed'))
-    quizSessionId.value = res.data.quizSessionId
-    questions.value = res.data.questions
-    emit('quizGenerated', res.data)
+  await loadQuiz(false)
+})
+
+function applyQuizSession(quiz: QuizSession) {
+  quizSessionId.value = quiz.quizSessionId
+  questions.value = quiz.questions
+  if (quiz.status === 'failed' && quiz.review) {
+    selectedAnswers.value = quiz.lastAnswers ?? [-1, -1, -1]
+    score.value = quiz.lastScore ?? 0
+    review.value = quiz.review
+    phase.value = 'result'
+  } else {
+    selectedAnswers.value = [-1, -1, -1]
+    review.value = []
     phase.value = 'quiz'
+  }
+}
+
+async function loadQuiz(forceRegenerate: boolean) {
+  phase.value = 'loading'
+  errorMsg.value = ''
+  try {
+    const res = await generateQuiz(props.treeId, props.nodeId, locale.value, forceRegenerate)
+    if (!res.data) throw new Error(res.message || t('quiz.generateFailed'))
+    applyQuizSession(res.data)
+    emit('quizGenerated', res.data)
   } catch (err) {
     errorMsg.value = (err as Error).message || t('quiz.generateFailed')
     phase.value = 'result'
   }
-})
+}
 
 async function submitAnswers() {
   if (!allAnswered.value || submitting.value) return
@@ -63,6 +81,7 @@ async function submitAnswers() {
     passed.value = res.data.passed
     score.value = res.data.score
     completeResult.value = res.data
+    review.value = res.data.review ?? []
     if (res.data.passed) emit('complete', res.data)
     phase.value = 'result'
   } catch (err) {
@@ -73,23 +92,23 @@ async function submitAnswers() {
   }
 }
 
-async function retry() {
+function retrySameQuiz() {
   selectedAnswers.value = [-1, -1, -1]
   passed.value = false
   score.value = 0
   errorMsg.value = ''
-  phase.value = 'loading'
-  try {
-    const res = await generateQuiz(props.treeId, props.nodeId, locale.value)
-    if (!res.data) throw new Error(res.message || t('quiz.generateFailed'))
-    quizSessionId.value = res.data.quizSessionId
-    questions.value = res.data.questions
-    emit('quizGenerated', res.data)
-    phase.value = 'quiz'
-  } catch (err) {
-    errorMsg.value = (err as Error).message || t('quiz.generateFailed')
-    phase.value = 'result'
-  }
+  completeResult.value = null
+  review.value = []
+  phase.value = 'quiz'
+}
+
+async function regenerateQuiz() {
+  selectedAnswers.value = [-1, -1, -1]
+  passed.value = false
+  score.value = 0
+  completeResult.value = null
+  review.value = []
+  await loadQuiz(true)
 }
 </script>
 
@@ -100,11 +119,11 @@ async function retry() {
         <h2 class="quiz-modal__title">
           <template v-if="phase === 'loading'">{{ t('quiz.loading') }}</template>
           <template v-else-if="phase === 'quiz'">{{ t('quiz.title', { title: props.nodeTitle }) }}</template>
-          <template v-else-if="passed">✓ {{ t('quiz.passed') }}</template>
+          <template v-else-if="passed">{{ t('quiz.passed') }}</template>
           <template v-else-if="errorMsg">{{ t('quiz.error') }}</template>
           <template v-else>{{ t('quiz.failed') }}</template>
         </h2>
-        <button v-if="phase === 'result'" class="quiz-modal__close" @click="emit('close')">×</button>
+        <button v-if="phase === 'result'" class="quiz-modal__close" @click="emit('close')">x</button>
       </div>
 
       <div v-if="phase === 'loading'" class="quiz-phase quiz-phase--center">
@@ -147,9 +166,18 @@ async function retry() {
         </template>
 
         <template v-else-if="passed">
-          <div class="quiz-result-icon quiz-result-icon--pass">✓</div>
+          <div class="quiz-result-icon quiz-result-icon--pass">OK</div>
           <p class="quiz-result-title">{{ t('quiz.passedTitle') }}</p>
           <p class="quiz-result-sub">{{ t('quiz.passedSub', { score }) }}</p>
+
+          <div v-if="review.length" class="quiz-review">
+            <div v-for="(item, index) in review" :key="index" class="quiz-review-item" :class="{ correct: item.isCorrect }">
+              <p class="quiz-review-item__question">{{ index + 1 }}. {{ item.question }}</p>
+              <p>{{ t('quiz.yourAnswer') }}: {{ item.userAnswer }}</p>
+              <p>{{ t('quiz.correctAnswer') }}: {{ item.correctAnswer }}</p>
+              <p class="quiz-review-item__explanation">{{ t('quiz.explanation') }}: {{ item.explanation }}</p>
+            </div>
+          </div>
 
           <div v-if="completeResult?.expGained" class="quiz-exp-gain">
             <span class="quiz-exp-float">+{{ completeResult.expGained }} EXP</span>
@@ -182,12 +210,23 @@ async function retry() {
         </template>
 
         <template v-else>
-          <div class="quiz-result-icon quiz-result-icon--fail">×</div>
+          <div class="quiz-result-icon quiz-result-icon--fail">!</div>
           <p class="quiz-result-title">{{ t('quiz.failed') }}</p>
           <p class="quiz-result-sub">{{ t('quiz.failedSub', { score }) }}</p>
+
+          <div v-if="review.length" class="quiz-review">
+            <div v-for="(item, index) in review" :key="index" class="quiz-review-item" :class="{ correct: item.isCorrect }">
+              <p class="quiz-review-item__question">{{ index + 1 }}. {{ item.question }}</p>
+              <p>{{ t('quiz.yourAnswer') }}: {{ item.userAnswer }}</p>
+              <p>{{ t('quiz.correctAnswer') }}: {{ item.correctAnswer }}</p>
+              <p class="quiz-review-item__explanation">{{ t('quiz.explanation') }}: {{ item.explanation }}</p>
+            </div>
+          </div>
+
           <div class="quiz-actions">
             <button class="quiz-btn quiz-btn--secondary" @click="emit('close')">{{ t('common.close') }}</button>
-            <button class="quiz-btn quiz-btn--primary" @click="retry">{{ t('quiz.retry') }}</button>
+            <button class="quiz-btn quiz-btn--secondary" @click="retrySameQuiz">{{ t('quiz.retry') }}</button>
+            <button class="quiz-btn quiz-btn--primary" @click="regenerateQuiz">{{ t('quiz.regenerate') }}</button>
           </div>
         </template>
       </div>
@@ -197,7 +236,7 @@ async function retry() {
 
 <style scoped>
 .quiz-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); }
-.quiz-modal { width: 100%; max-width: 520px; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 20px; background-color: var(--bg-card); border: 1px solid var(--border-color); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4); }
+.quiz-modal { width: 100%; max-width: 620px; max-height: 92vh; overflow: auto; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 20px; background-color: var(--bg-card); border: 1px solid var(--border-color); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4); }
 .quiz-modal__header { display: flex; align-items: center; justify-content: space-between; }
 .quiz-modal__title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0; }
 .quiz-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: opacity 0.15s; }
@@ -216,18 +255,24 @@ async function retry() {
 .quiz-option--selected { background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(6, 182, 212, 0.15)); border-color: #7c3aed; color: var(--text-primary); }
 .quiz-option__label { font-weight: 700; flex-shrink: 0; color: var(--text-muted); }
 .quiz-option--selected .quiz-option__label { color: #7c3aed; }
-.quiz-actions { display: flex; gap: 10px; }
+.quiz-actions { display: flex; gap: 10px; width: 100%; }
 .quiz-btn { flex: 1; padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; border: none; }
 .quiz-btn:hover:not(:disabled) { opacity: 0.85; }
 .quiz-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .quiz-btn--primary { background: linear-gradient(135deg, #7c3aed, #06b6d4); color: white; }
 .quiz-btn--secondary { background-color: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border-color); }
 .quiz-btn--full { flex: none; width: 100%; }
-.quiz-result-icon { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 900; }
+.quiz-result-icon { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900; }
 .quiz-result-icon--pass { background: rgba(16, 185, 129, 0.15); color: #10b981; }
 .quiz-result-icon--fail { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
 .quiz-result-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0; }
 .quiz-result-msg, .quiz-result-sub { font-size: 13px; text-align: center; margin: 0; color: var(--text-secondary); }
+.quiz-review { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.quiz-review-item { padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.28); background: rgba(239, 68, 68, 0.08); color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
+.quiz-review-item.correct { border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.08); }
+.quiz-review-item p { margin: 3px 0; }
+.quiz-review-item__question { color: var(--text-primary); font-weight: 700; }
+.quiz-review-item__explanation { color: var(--text-primary); }
 .quiz-exp-gain { position: relative; height: 32px; display: flex; justify-content: center; }
 .quiz-exp-float { font-size: 20px; font-weight: 800; color: #fbbf24; animation: exp-float 1.2s ease-out both; display: inline-block; }
 .quiz-bonus { margin: -8px 0 0; font-size: 12px; font-weight: 700; color: #f59e0b; }

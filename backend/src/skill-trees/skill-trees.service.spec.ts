@@ -115,6 +115,8 @@ describe('SkillTreesService generation validation', () => {
     );
     expect(result.quizSessionId).toEqual(expect.any(String));
     expect(result.questions).toHaveLength(3);
+    expect(result.status).toBe('active');
+    expect(result.attempts).toBe(0);
     expect(skillTreeModel.findByIdAndUpdate).toHaveBeenCalledWith(
       'tree-1',
       expect.objectContaining({
@@ -122,6 +124,8 @@ describe('SkillTreesService generation validation', () => {
           expect.objectContaining({
             id: result.quizSessionId,
             nodeId: 'node_1',
+            status: 'active',
+            attempts: 0,
             questions: result.questions,
           }),
         ],
@@ -138,11 +142,14 @@ describe('SkillTreesService generation validation', () => {
         {
           id: 'quiz-1',
           nodeId: 'node_1',
+          status: 'active',
+          attempts: 0,
           createdAt: new Date(),
+          updatedAt: new Date(),
           questions: [
-            { question: 'q1', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
-            { question: 'q2', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
-            { question: 'q3', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+            { question: 'q1', options: ['a', 'b', 'c', 'd'], correctIndex: 0, explanation: 'e1' },
+            { question: 'q2', options: ['a', 'b', 'c', 'd'], correctIndex: 0, explanation: 'e2' },
+            { question: 'q3', options: ['a', 'b', 'c', 'd'], correctIndex: 0, explanation: 'e3' },
           ],
         },
       ],
@@ -157,6 +164,16 @@ describe('SkillTreesService generation validation', () => {
     });
 
     expect(result.passed).toBe(false);
+    expect(result.review).toHaveLength(3);
+    expect(result.review[0]).toEqual(
+      expect.objectContaining({
+        question: 'q1',
+        userAnswer: 'b',
+        correctAnswer: 'a',
+        explanation: 'e1',
+        isCorrect: false,
+      }),
+    );
     expect(skillTreeModel.findByIdAndUpdate).toHaveBeenCalledWith('tree-1', {
       quizPerformance: [
         expect.objectContaining({
@@ -168,7 +185,15 @@ describe('SkillTreesService generation validation', () => {
           lastScore: 0,
         }),
       ],
-      pendingQuizSessions: [],
+      pendingQuizSessions: [
+        expect.objectContaining({
+          id: 'quiz-1',
+          status: 'failed',
+          lastAnswers: [1, 1, 1],
+          lastScore: 0,
+          attempts: 1,
+        }),
+      ],
     });
   });
 
@@ -182,11 +207,14 @@ describe('SkillTreesService generation validation', () => {
         {
           id: 'quiz-2',
           nodeId: 'node_2',
+          status: 'active',
+          attempts: 0,
           createdAt: new Date(),
+          updatedAt: new Date(),
           questions: [
-            { question: 'q1', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
-            { question: 'q2', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
-            { question: 'q3', options: ['a', 'b', 'c', 'd'], correctIndex: 0 },
+            { question: 'q1', options: ['a', 'b', 'c', 'd'], correctIndex: 0, explanation: 'e1' },
+            { question: 'q2', options: ['a', 'b', 'c', 'd'], correctIndex: 0, explanation: 'e2' },
+            { question: 'q3', options: ['a', 'b', 'c', 'd'], correctIndex: 0, explanation: 'e3' },
           ],
         },
       ],
@@ -213,6 +241,7 @@ describe('SkillTreesService generation validation', () => {
         expGained: 24,
         baseExp: 20,
         pathBonusExp: 4,
+        review: expect.any(Array),
       }),
     );
     expect(usersService.addExp).toHaveBeenCalledWith(

@@ -17,6 +17,22 @@ const pdfParse = require('pdf-parse');
 export interface NodeQuizSession {
   quizSessionId: string;
   questions: QuizQuestion[];
+  status: 'active' | 'failed' | 'passed';
+  attempts: number;
+  lastAnswers?: number[];
+  lastScore?: number;
+  review?: QuizReviewItem[];
+}
+
+export interface QuizReviewItem {
+  question: string;
+  options: string[];
+  userAnswerIndex: number;
+  userAnswer: string;
+  correctIndex: number;
+  correctAnswer: string;
+  explanation: string;
+  isCorrect: boolean;
 }
 
 @Injectable()
@@ -179,6 +195,7 @@ export class SkillTreesService {
     treeId: string,
     nodeId: string,
     language?: AppLanguage,
+    forceRegenerate = false,
   ): Promise<NodeQuizSession> {
     const tree = await this.findOne(userId, treeId);
     const node = tree.nodes.find((n) => n.id === nodeId);
@@ -187,6 +204,11 @@ export class SkillTreesService {
     const statuses = this.computeNodeStatuses(tree.nodes, tree.completedNodes ?? []);
     if (statuses[nodeId] === 'locked') throw new ForbiddenException('该节点尚未解锁');
     if (statuses[nodeId] === 'completed') throw new BadRequestException('该节点已完成');
+
+    const reusableSession = findReusableQuizSession(tree.pendingQuizSessions ?? [], nodeId);
+    if (reusableSession && !forceRegenerate) {
+      return serializeQuizSession(reusableSession);
+    }
 
     const memory = await this.ragService.searchLearningMemory({
       userId,
@@ -223,9 +245,17 @@ export class SkillTreesService {
     );
     const quizSessionId = randomUUID();
     const pendingQuizSessions = pruneQuizSessions(tree.pendingQuizSessions ?? [], nodeId);
-    pendingQuizSessions.push({ id: quizSessionId, nodeId, questions, createdAt: new Date() });
+    pendingQuizSessions.push({
+      id: quizSessionId,
+      nodeId,
+      status: 'active',
+      questions,
+      attempts: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
     await this.skillTreeModel.findByIdAndUpdate(treeId, { pendingQuizSessions });
-    return { quizSessionId, questions };
+    return { quizSessionId, questions, status: 'active', attempts: 0 };
   }
 
   async completeNode(
@@ -244,6 +274,7 @@ export class SkillTreesService {
     newLevel?: number;
     leveledUp?: boolean;
     newBadges?: Array<{ id: string; name: string }>;
+    review: QuizReviewItem[];
   }> {
     const tree = await this.findOne(userId, treeId);
     const node = tree.nodes.find((n) => n.id === nodeId);
@@ -260,8 +291,10 @@ export class SkillTreesService {
 
     let correct = 0;
     const mistakes: { question: string; userAnswer: string; correctAnswer: string }[] = [];
-    for (let i = 0; i < quizSession.questions.length; i++) {
-      const question = quizSession.questions[i];
+    const quizQuestions = normalizeQuizQuestions(quizSession.questions);
+    const review = buildQuizReview(quizQuestions, dto.quizAnswers);
+    for (let i = 0; i < quizQuestions.length; i++) {
+      const question = quizQuestions[i];
       if (dto.quizAnswers[i] === question.correctIndex) {
         correct++;
       } else {
@@ -274,7 +307,12 @@ export class SkillTreesService {
     }
     const score = correct;
     const passed = score >= 2;
-    const remainingQuizSessions = removeQuizSession(tree.pendingQuizSessions ?? [], dto.quizSessionId);
+    const updatedQuizSessions = updateQuizSessionAfterAttempt(tree.pendingQuizSessions ?? [], dto.quizSessionId, {
+      status: passed ? 'passed' : 'failed',
+      lastAnswers: dto.quizAnswers,
+      lastScore: score,
+    });
+    const remainingQuizSessions = passed ? removeQuizSession(updatedQuizSessions, dto.quizSessionId) : updatedQuizSessions;
     await this.logEvaluation({
       userId,
       skillTreeId: treeId,
@@ -296,7 +334,7 @@ export class SkillTreesService {
     if (!passed) {
       const quizPerformance = updateQuizPerformance(tree.quizPerformance ?? [], nodeId, score, false);
       await this.skillTreeModel.findByIdAndUpdate(treeId, { quizPerformance, pendingQuizSessions: remainingQuizSessions });
-      return { passed: false, score, newStatuses: statuses };
+      return { passed: false, score, newStatuses: statuses, review };
     }
 
     const updatedCompletedNodes = [...new Set([...(tree.completedNodes ?? []), nodeId])];
@@ -326,7 +364,7 @@ export class SkillTreesService {
     const treeBadges = [
       ...(treeComplete ? [{ id: `tree_complete_${treeId}`, name: `完成整棵树：${tree.title}` }] : []),
       ...(afterPath.similarityScore >= 80 ? [{ id: `high_similarity_path_${treeId}`, name: '高相似度路径' }] : []),
-      ...(score === quizSession.questions.length ? [{ id: 'perfect_quiz', name: '测验全对' }] : []),
+      ...(score === quizQuestions.length ? [{ id: 'perfect_quiz', name: '测验全对' }] : []),
     ];
 
     const expGained = pathReward.totalExp;
@@ -368,6 +406,7 @@ export class SkillTreesService {
       newLevel,
       leveledUp,
       newBadges,
+      review,
     };
   }
 
@@ -409,6 +448,29 @@ function updateQuizPerformance(
   return [...others, next];
 }
 
+function serializeQuizSession(session: PendingQuizSession): NodeQuizSession {
+  const status = session.status ?? 'active';
+  const questions = normalizeQuizQuestions(session.questions);
+  const result: NodeQuizSession = {
+    quizSessionId: session.id,
+    questions,
+    status,
+    attempts: session.attempts ?? 0,
+    lastAnswers: session.lastAnswers,
+    lastScore: session.lastScore,
+  };
+
+  if (session.lastAnswers) {
+    result.review = buildQuizReview(questions, session.lastAnswers);
+  }
+
+  return result;
+}
+
+function findReusableQuizSession(sessions: PendingQuizSession[], nodeId: string): PendingQuizSession | undefined {
+  return sessions.find((session) => session.nodeId === nodeId && (session.status ?? 'active') !== 'passed');
+}
+
 function findQuizSession(
   sessions: PendingQuizSession[],
   quizSessionId: string,
@@ -421,11 +483,58 @@ function removeQuizSession(sessions: PendingQuizSession[], quizSessionId: string
   return sessions.filter((session) => session.id !== quizSessionId);
 }
 
+function updateQuizSessionAfterAttempt(
+  sessions: PendingQuizSession[],
+  quizSessionId: string,
+  update: { status: 'failed' | 'passed'; lastAnswers: number[]; lastScore: number },
+): PendingQuizSession[] {
+  return sessions.map((session) =>
+    session.id === quizSessionId
+      ? {
+          ...session,
+          status: update.status,
+          lastAnswers: update.lastAnswers,
+          lastScore: update.lastScore,
+          attempts: (session.attempts ?? 0) + 1,
+          updatedAt: new Date(),
+        }
+      : session,
+  );
+}
+
+function normalizeQuizQuestions(questions: PendingQuizSession['questions']): QuizQuestion[] {
+  return questions.map((question) => ({
+    question: question.question,
+    options: question.options,
+    correctIndex: question.correctIndex,
+    explanation: question.explanation ?? 'Review the related concept and compare each option carefully.',
+  }));
+}
+
 function pruneQuizSessions(sessions: PendingQuizSession[], nodeId: string): PendingQuizSession[] {
   const cutoff = Date.now() - 30 * 60 * 1000;
   return sessions.filter((session) => {
     const createdAt = session.createdAt ? new Date(session.createdAt).getTime() : 0;
-    return createdAt >= cutoff && session.nodeId !== nodeId;
+    const status = session.status ?? 'active';
+    return createdAt >= cutoff && session.nodeId !== nodeId && status !== 'passed';
+  });
+}
+
+function buildQuizReview(questions: QuizQuestion[], answers: number[]): QuizReviewItem[] {
+  return questions.map((question, index) => {
+    const userAnswerIndex = answers[index] ?? -1;
+    const userAnswer = question.options[userAnswerIndex] ?? '未作答';
+    const correctAnswer = question.options[question.correctIndex] ?? '';
+    return {
+      question: question.question,
+      options: question.options,
+      userAnswerIndex,
+      userAnswer,
+      correctIndex: question.correctIndex,
+      correctAnswer,
+      explanation: question.explanation ?? '请回顾相关概念，并比较每个选项的差异。',
+      isCorrect: userAnswerIndex === question.correctIndex,
+    };
   });
 }
 

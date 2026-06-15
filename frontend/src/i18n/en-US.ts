@@ -165,6 +165,10 @@ const enUS = {
     unlockedBadges: 'Unlocked badges',
     continue: 'Continue learning',
     retry: 'Try again',
+    regenerate: 'Generate new quiz',
+    yourAnswer: 'Your answer',
+    correctAnswer: 'Correct answer',
+    explanation: 'Explanation',
   },
   chat: {
     title: 'AI assistant',

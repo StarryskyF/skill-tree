@@ -35,11 +35,28 @@ export interface QuizQuestion {
   question: string
   options: string[]
   correctIndex: number
+  explanation?: string
+}
+
+export interface QuizReviewItem {
+  question: string
+  options: string[]
+  userAnswerIndex: number
+  userAnswer: string
+  correctIndex: number
+  correctAnswer: string
+  explanation: string
+  isCorrect: boolean
 }
 
 export interface QuizSession {
   quizSessionId: string
   questions: QuizQuestion[]
+  status: 'active' | 'failed' | 'passed'
+  attempts: number
+  lastAnswers?: number[]
+  lastScore?: number
+  review?: QuizReviewItem[]
 }
 
 export interface CompleteNodeResult {
@@ -53,6 +70,7 @@ export interface CompleteNodeResult {
   newLevel?: number
   leveledUp?: boolean
   newBadges?: Array<{ id: string; name: string }>
+  review: QuizReviewItem[]
 }
 
 export interface PathDeviation {
@@ -109,8 +127,12 @@ export function getNodeStatuses(treeId: string) {
   return client.get<Record<string, NodeStatus>>(`/skill-trees/${treeId}/node-statuses`)
 }
 
-export function generateQuiz(treeId: string, nodeId: string, language?: 'zh-CN' | 'en-US') {
-  return client.post<QuizSession>(`/skill-trees/${treeId}/nodes/${nodeId}/quiz`, { language }, { timeout: 60000 })
+export function generateQuiz(treeId: string, nodeId: string, language?: 'zh-CN' | 'en-US', forceRegenerate = false) {
+  return client.post<QuizSession>(
+    `/skill-trees/${treeId}/nodes/${nodeId}/quiz`,
+    { language, forceRegenerate },
+    { timeout: 60000 },
+  )
 }
 
 export function completeNode(

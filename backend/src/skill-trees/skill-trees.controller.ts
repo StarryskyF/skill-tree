@@ -61,7 +61,7 @@ export class SkillTreesController {
     @Param('nodeId') nodeId: string,
     @Body() dto: GenerateQuizDto,
   ) {
-    return this.skillTreesService.generateNodeQuiz(req.user.id, id, nodeId, dto.language);
+    return this.skillTreesService.generateNodeQuiz(req.user.id, id, nodeId, dto.language, dto.forceRegenerate);
   }
 
   @Post(':id/nodes/:nodeId/complete')

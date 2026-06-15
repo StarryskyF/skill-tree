@@ -165,6 +165,10 @@ const zhCN = {
     unlockedBadges: '解锁成就',
     continue: '继续学习',
     retry: '重新作答',
+    regenerate: '重新生成题目',
+    yourAnswer: '你的答案',
+    correctAnswer: '正确答案',
+    explanation: '解析',
   },
   chat: {
     title: 'AI 助手',

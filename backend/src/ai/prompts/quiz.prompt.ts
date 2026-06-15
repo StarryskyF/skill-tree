@@ -27,15 +27,17 @@ function buildChineseQuizPrompt(title: string, description: string, treeGoal: st
 - question: 题干
 - options: 4 个选项
 - correctIndex: 正确答案下标，0 到 3
+- explanation: 简短解析，说明为什么正确答案是对的
 
 要求：
 1. 只返回 JSON，不要 markdown 代码块或额外说明
-2. 所有题干和选项必须使用中文
+2. 所有题干、选项和解析必须使用中文
 3. 题目应考察理解和应用，不要只问概念定义
 4. 难度要适合该技能节点
+5. 解析要简洁，适合用户复盘错题
 
 示例：
-[{"question":"...","options":["...","...","...","..."],"correctIndex":0}]`;
+[{"question":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."}]`;
 }
 
 function buildEnglishQuizPrompt(title: string, description: string, treeGoal: string, learningContext?: string): string {
@@ -53,13 +55,15 @@ Return only a JSON array with exactly 3 items. Each question must include:
 - question: The question text
 - options: 4 answer options
 - correctIndex: The correct answer index from 0 to 3
+- explanation: A short explanation of why the correct answer is right
 
 Requirements:
 1. Return JSON only. Do not include markdown code fences or extra explanation
-2. All questions and options must be in English
+2. All questions, options, and explanations must be in English
 3. Test understanding and application, not only definitions
 4. Keep difficulty appropriate for the skill node
+5. Keep each explanation concise and useful for review
 
 Example:
-[{"question":"...","options":["...","...","...","..."],"correctIndex":0}]`;
+[{"question":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."}]`;
 }

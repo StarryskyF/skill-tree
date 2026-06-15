@@ -158,7 +158,6 @@ function onQuizComplete(result: CompleteNodeResult) {
 }
 
 function onQuizClose() {
-  if (quizModalNodeId.value) delete nodeQuizCache.value[quizModalNodeId.value]
   quizModalNodeId.value = null
 }
 
