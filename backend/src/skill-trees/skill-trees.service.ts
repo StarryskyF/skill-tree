@@ -35,6 +35,8 @@ export interface QuizReviewItem {
   isCorrect: boolean;
 }
 
+const GenericQuizExplanation = 'Review the related concept and compare each option carefully.';
+
 @Injectable()
 export class SkillTreesService {
   private readonly logger = new Logger(SkillTreesService.name);
@@ -507,7 +509,9 @@ function normalizeQuizQuestions(questions: PendingQuizSession['questions']): Qui
     question: question.question,
     options: question.options,
     correctIndex: question.correctIndex,
-    explanation: question.explanation ?? 'Review the related concept and compare each option carefully.',
+    explanation: isSpecificExplanation(question.explanation)
+      ? question.explanation
+      : buildFallbackExplanation(question),
   }));
 }
 
@@ -532,10 +536,32 @@ function buildQuizReview(questions: QuizQuestion[], answers: number[]): QuizRevi
       userAnswer,
       correctIndex: question.correctIndex,
       correctAnswer,
-      explanation: question.explanation ?? '请回顾相关概念，并比较每个选项的差异。',
+      explanation: isSpecificExplanation(question.explanation)
+        ? question.explanation
+        : buildFallbackExplanation(question),
       isCorrect: userAnswerIndex === question.correctIndex,
     };
   });
+}
+
+function isSpecificExplanation(explanation?: string): explanation is string {
+  return Boolean(explanation && explanation.trim().length >= 12 && explanation.trim() !== GenericQuizExplanation);
+}
+
+function buildFallbackExplanation(question: {
+  question: string;
+  options: string[];
+  correctIndex: number;
+}): string {
+  const correctAnswer = question.options[question.correctIndex] ?? '';
+  const shortQuestion = question.question.replace(/\s+/g, ' ').slice(0, 48);
+  const isChinese = /[\u3400-\u9fff]/.test(question.question);
+
+  if (isChinese) {
+    return `正确答案是「${correctAnswer}」。这题考察“${shortQuestion}”相关用法，复盘时重点比较正确选项和其他选项的适用场景。`;
+  }
+
+  return `The correct answer is "${correctAnswer}". This question checks ${shortQuestion}; compare the correct option with the distractors.`;
 }
 
 async function extractPdfText(buffer: Buffer): Promise<string> {

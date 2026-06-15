@@ -31,11 +31,15 @@ const SkillTreeResultSchema = z.object({
 
 export type SkillTreeAiResult = z.infer<typeof SkillTreeResultSchema>;
 
+const GenericQuizExplanation = 'Review the related concept and compare each option carefully.';
+
 const QuizQuestionSchema = z.object({
   question: z.string(),
   options: z.array(z.string()).length(4),
   correctIndex: z.number().int().min(0).max(3),
-  explanation: z.string().optional().default('Review the related concept and compare each option carefully.'),
+  explanation: z.string().trim().min(12).refine((value) => value !== GenericQuizExplanation, {
+    message: 'explanation must be specific to this question',
+  }),
 });
 
 const QuizResultSchema = z.array(QuizQuestionSchema).length(3);
