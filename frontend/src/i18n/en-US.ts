@@ -169,6 +169,12 @@ const enUS = {
     yourAnswer: 'Your answer',
     correctAnswer: 'Correct answer',
     explanation: 'Explanation',
+    answerHidden: 'Hidden',
+    explanationHidden: 'Hidden',
+    showCorrectAnswer: 'Show correct answer',
+    hideCorrectAnswer: 'Hide correct answer',
+    showExplanation: 'Show explanation',
+    hideExplanation: 'Hide explanation',
   },
   chat: {
     title: 'AI assistant',

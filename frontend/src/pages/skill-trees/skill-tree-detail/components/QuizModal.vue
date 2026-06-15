@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { Hide, View } from '@element-plus/icons-vue'
 import { generateQuiz, completeNode } from '../../../../api/skill-trees'
 import type { CompleteNodeResult, QuizQuestion, QuizReviewItem, QuizSession } from '../../../../api/skill-trees'
 import { useI18n } from '../../../../i18n'
@@ -29,6 +30,8 @@ const score = ref(0)
 const submitting = ref(false)
 const completeResult = ref<CompleteNodeResult | null>(null)
 const review = ref<QuizReviewItem[]>([])
+const visibleCorrectAnswers = ref<Set<number>>(new Set())
+const visibleExplanations = ref<Set<number>>(new Set())
 
 const allAnswered = computed(() => selectedAnswers.value.every((answer) => answer !== -1))
 
@@ -41,6 +44,7 @@ onMounted(async () => {
 })
 
 function applyQuizSession(quiz: QuizSession) {
+  resetReviewVisibility()
   quizSessionId.value = quiz.quizSessionId
   questions.value = quiz.questions
   if (quiz.status === 'failed' && quiz.review) {
@@ -58,6 +62,7 @@ function applyQuizSession(quiz: QuizSession) {
 async function loadQuiz(forceRegenerate: boolean) {
   phase.value = 'loading'
   errorMsg.value = ''
+  resetReviewVisibility()
   try {
     const res = await generateQuiz(props.treeId, props.nodeId, locale.value, forceRegenerate)
     if (!res.data) throw new Error(res.message || t('quiz.generateFailed'))
@@ -82,6 +87,7 @@ async function submitAnswers() {
     score.value = res.data.score
     completeResult.value = res.data
     review.value = res.data.review ?? []
+    resetReviewVisibility()
     if (res.data.passed) emit('complete', res.data)
     phase.value = 'result'
   } catch (err) {
@@ -99,6 +105,7 @@ function retrySameQuiz() {
   errorMsg.value = ''
   completeResult.value = null
   review.value = []
+  resetReviewVisibility()
   phase.value = 'quiz'
 }
 
@@ -108,7 +115,41 @@ async function regenerateQuiz() {
   score.value = 0
   completeResult.value = null
   review.value = []
+  resetReviewVisibility()
   await loadQuiz(true)
+}
+
+function isCorrectAnswerVisible(index: number) {
+  return visibleCorrectAnswers.value.has(index)
+}
+
+function toggleCorrectAnswer(index: number) {
+  const next = new Set(visibleCorrectAnswers.value)
+  if (next.has(index)) {
+    next.delete(index)
+  } else {
+    next.add(index)
+  }
+  visibleCorrectAnswers.value = next
+}
+
+function isExplanationVisible(index: number) {
+  return visibleExplanations.value.has(index)
+}
+
+function toggleExplanation(index: number) {
+  const next = new Set(visibleExplanations.value)
+  if (next.has(index)) {
+    next.delete(index)
+  } else {
+    next.add(index)
+  }
+  visibleExplanations.value = next
+}
+
+function resetReviewVisibility() {
+  visibleCorrectAnswers.value = new Set()
+  visibleExplanations.value = new Set()
 }
 </script>
 
@@ -174,8 +215,36 @@ async function regenerateQuiz() {
             <div v-for="(item, index) in review" :key="index" class="quiz-review-item" :class="{ correct: item.isCorrect }">
               <p class="quiz-review-item__question">{{ index + 1 }}. {{ item.question }}</p>
               <p>{{ t('quiz.yourAnswer') }}: {{ item.userAnswer }}</p>
-              <p>{{ t('quiz.correctAnswer') }}: {{ item.correctAnswer }}</p>
-              <p class="quiz-review-item__explanation">{{ t('quiz.explanation') }}: {{ item.explanation }}</p>
+              <div class="quiz-answer-line">
+                <span>{{ t('quiz.correctAnswer') }}:</span>
+                <span v-if="isCorrectAnswerVisible(index)" class="quiz-answer-line__value">{{ item.correctAnswer }}</span>
+                <span v-else class="quiz-answer-line__hidden">{{ t('quiz.answerHidden') }}</span>
+                <button
+                  class="quiz-answer-toggle"
+                  type="button"
+                  :title="isCorrectAnswerVisible(index) ? t('quiz.hideCorrectAnswer') : t('quiz.showCorrectAnswer')"
+                  :aria-label="isCorrectAnswerVisible(index) ? t('quiz.hideCorrectAnswer') : t('quiz.showCorrectAnswer')"
+                  @click="toggleCorrectAnswer(index)"
+                >
+                  <Hide v-if="isCorrectAnswerVisible(index)" />
+                  <View v-else />
+                </button>
+              </div>
+              <div class="quiz-answer-line">
+                <span>{{ t('quiz.explanation') }}:</span>
+                <span v-if="isExplanationVisible(index)" class="quiz-answer-line__value quiz-answer-line__value--long">{{ item.explanation }}</span>
+                <span v-else class="quiz-answer-line__hidden">{{ t('quiz.explanationHidden') }}</span>
+                <button
+                  class="quiz-answer-toggle"
+                  type="button"
+                  :title="isExplanationVisible(index) ? t('quiz.hideExplanation') : t('quiz.showExplanation')"
+                  :aria-label="isExplanationVisible(index) ? t('quiz.hideExplanation') : t('quiz.showExplanation')"
+                  @click="toggleExplanation(index)"
+                >
+                  <Hide v-if="isExplanationVisible(index)" />
+                  <View v-else />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -218,8 +287,36 @@ async function regenerateQuiz() {
             <div v-for="(item, index) in review" :key="index" class="quiz-review-item" :class="{ correct: item.isCorrect }">
               <p class="quiz-review-item__question">{{ index + 1 }}. {{ item.question }}</p>
               <p>{{ t('quiz.yourAnswer') }}: {{ item.userAnswer }}</p>
-              <p>{{ t('quiz.correctAnswer') }}: {{ item.correctAnswer }}</p>
-              <p class="quiz-review-item__explanation">{{ t('quiz.explanation') }}: {{ item.explanation }}</p>
+              <div class="quiz-answer-line">
+                <span>{{ t('quiz.correctAnswer') }}:</span>
+                <span v-if="isCorrectAnswerVisible(index)" class="quiz-answer-line__value">{{ item.correctAnswer }}</span>
+                <span v-else class="quiz-answer-line__hidden">{{ t('quiz.answerHidden') }}</span>
+                <button
+                  class="quiz-answer-toggle"
+                  type="button"
+                  :title="isCorrectAnswerVisible(index) ? t('quiz.hideCorrectAnswer') : t('quiz.showCorrectAnswer')"
+                  :aria-label="isCorrectAnswerVisible(index) ? t('quiz.hideCorrectAnswer') : t('quiz.showCorrectAnswer')"
+                  @click="toggleCorrectAnswer(index)"
+                >
+                  <Hide v-if="isCorrectAnswerVisible(index)" />
+                  <View v-else />
+                </button>
+              </div>
+              <div class="quiz-answer-line">
+                <span>{{ t('quiz.explanation') }}:</span>
+                <span v-if="isExplanationVisible(index)" class="quiz-answer-line__value quiz-answer-line__value--long">{{ item.explanation }}</span>
+                <span v-else class="quiz-answer-line__hidden">{{ t('quiz.explanationHidden') }}</span>
+                <button
+                  class="quiz-answer-toggle"
+                  type="button"
+                  :title="isExplanationVisible(index) ? t('quiz.hideExplanation') : t('quiz.showExplanation')"
+                  :aria-label="isExplanationVisible(index) ? t('quiz.hideExplanation') : t('quiz.showExplanation')"
+                  @click="toggleExplanation(index)"
+                >
+                  <Hide v-if="isExplanationVisible(index)" />
+                  <View v-else />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -272,7 +369,13 @@ async function regenerateQuiz() {
 .quiz-review-item.correct { border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.08); }
 .quiz-review-item p { margin: 3px 0; }
 .quiz-review-item__question { color: var(--text-primary); font-weight: 700; }
-.quiz-review-item__explanation { color: var(--text-primary); }
+.quiz-answer-line { display: flex; align-items: center; gap: 6px; margin: 3px 0; min-height: 28px; flex-wrap: wrap; }
+.quiz-answer-line__value { color: var(--text-primary); font-weight: 600; }
+.quiz-answer-line__value--long { flex: 1 1 100%; font-weight: 500; line-height: 1.5; }
+.quiz-answer-line__hidden { color: var(--text-muted); }
+.quiz-answer-toggle { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: color 0.15s, border-color 0.15s, opacity 0.15s; }
+.quiz-answer-toggle:hover { color: var(--text-primary); border-color: rgba(124, 58, 237, 0.45); }
+.quiz-answer-toggle svg { width: 15px; height: 15px; }
 .quiz-exp-gain { position: relative; height: 32px; display: flex; justify-content: center; }
 .quiz-exp-float { font-size: 20px; font-weight: 800; color: #fbbf24; animation: exp-float 1.2s ease-out both; display: inline-block; }
 .quiz-bonus { margin: -8px 0 0; font-size: 12px; font-weight: 700; color: #f59e0b; }

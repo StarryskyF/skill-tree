@@ -169,6 +169,12 @@ const zhCN = {
     yourAnswer: '你的答案',
     correctAnswer: '正确答案',
     explanation: '解析',
+    answerHidden: '已隐藏',
+    explanationHidden: '已隐藏',
+    showCorrectAnswer: '显示正确答案',
+    hideCorrectAnswer: '隐藏正确答案',
+    showExplanation: '显示解析',
+    hideExplanation: '隐藏解析',
   },
   chat: {
     title: 'AI 助手',
